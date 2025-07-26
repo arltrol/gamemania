@@ -28,11 +28,15 @@
   const games = [{ id: "fastclick", name: "Fast Click Challenge", image: "https://via.placeholder.com/400x200.png?text=Fast+Click+Challenge", url: "games/fastclick/index.html", plays: 0 }];
 
   // Rest of your script remains unchanged
-  async function logGameplay(gameId) {
-    const device = localStorage.getItem("deviceId") || crypto.randomUUID();
+ async function logGameplay(gameId) {
+  let device = localStorage.getItem("deviceId");
+  if (!device || device === "") {
+    device = crypto.randomUUID();
     localStorage.setItem("deviceId", device);
-    await SUPABASE.from('gameplays').insert([{ game: gameId, device, useragent: navigator.userAgent, ip_address: '', location: '' }]);
   }
+  await SUPABASE.from('gameplays').insert([{ game: gameId, device, useragent: navigator.userAgent, ip_address: '', location: '' }]);
+}
+    
 
   async function fetchPopularity() {
   const { data, error } = await SUPABASE.from('gameplays')
