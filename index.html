@@ -35,18 +35,19 @@
   }
 
   async function fetchPopularity() {
-    const { data, error } = await SUPABASE.from('gameplays')
-      .select('game, count', { count: 'exact' })
-      .in('game', games.map(g => g.id));
-    if (error) {
-      console.error('Fetch Popularity Error:', error.message);
-      return;
-    }
-    for (let g of games) {
-      const found = data.find(d => d.game === g.id);
-      g.plays = found ? found.count : 0;
-    }
+  const { data, error } = await SUPABASE.from('gameplays')
+    .select('game, count', { count: 'exact' })
+    .in('game', games.map(g => g.id))
+    .group('game'); // Add GROUP BY clause for the 'game' column
+  if (error) {
+    console.error('Fetch Popularity Error:', error.message);
+    return;
   }
+  for (let g of games) {
+    const found = data.find(d => d.game === g.id);
+    g.plays = found ? found.count : 0;
+  }
+}
 
   async function fetchScores(gameId) {
     const { data } = await SUPABASE.from('highscores').select('player_name, score').eq('game', gameId).order('score', { ascending: false }).limit(5);
