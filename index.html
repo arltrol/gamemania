@@ -40,15 +40,19 @@
 
   async function fetchPopularity() {
   const { data, error } = await SUPABASE.from('gameplays')
-    .select('game, count', { count: 'exact', head: true }) // head: true limits to count only
+    .select('game, count', { count: 'exact' })
     .in('game', games.map(g => g.id));
   if (error) {
-    console.error('Fetch Popularity Error:', error.message);
+    console.error('Fetch Popularity Error:', error.message || 'Unknown error');
+    // Fallback to 0 plays if query fails
+    for (let g of games) {
+      g.plays = 0;
+    }
     return;
   }
   for (let g of games) {
     const found = data.find(d => d.game === g.id);
-    g.plays = found ? parseInt(found.count) : 0; // Ensure count is an integer
+    g.plays = found ? parseInt(found.count) : 0;
   }
 }
 
