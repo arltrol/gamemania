@@ -52,10 +52,14 @@
       for (const game of games) {
         const card = document.createElement('div');
         card.className = 'game-card';
-        card.innerHTML = `<h2>{game.name} (Played: {game.plays})</h2><a href="{game.url}" onclick="logGameplay('{game.id}')"><img src="{game.image}" alt="{game.name}"></a><div class="scoreboard" id="scoreboard-{game.id}">Loading scores...</div>`;
+        card.innerHTML = `<h2>${game.name} (Played: ${game.plays})</h2><a href="${game.url}" onclick="logGameplay('${game.id}')">
+    <img src="${game.image}" alt="${game.name}">
+  </a>
+  <div class="scoreboard" id="scoreboard-${game.id}">Loading scores...</div>
+`;
         container.appendChild(card);
         const scores = await fetchScores(game.id);
-        document.getElementById(`scoreboard-${game.id}`).innerHTML = scores.map(s => `<div>{s.player_name}: {s.score}</div>`).join('') || 'No scores yet.';
+document.getElementById(`scoreboard-${game.id}`).innerHTML =scores.map(s => `<div>${s.player_name}: ${s.score}</div>`).join('') || 'No scores yet.';
       }
     }
 
