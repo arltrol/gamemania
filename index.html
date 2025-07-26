@@ -40,16 +40,15 @@
 
   async function fetchPopularity() {
   const { data, error } = await SUPABASE.from('gameplays')
-    .select('game, count', { count: 'exact' })
-    .in('game', games.map(g => g.id))
-    .group('game'); // Add GROUP BY clause for the 'game' column
+    .select('game, count', { count: 'exact', head: true }) // head: true limits to count only
+    .in('game', games.map(g => g.id));
   if (error) {
     console.error('Fetch Popularity Error:', error.message);
     return;
   }
   for (let g of games) {
     const found = data.find(d => d.game === g.id);
-    g.plays = found ? found.count : 0;
+    g.plays = found ? parseInt(found.count) : 0; // Ensure count is an integer
   }
 }
 
