@@ -24,17 +24,17 @@
   <script>
     const SUPABASE_URL = 'https://mkvuwpdwiqgoyfynvnfj.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_FkL4JjHLWajl7QddtQwQkg_HRtrNPmb';
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const SUPABASE = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     const games = [{ id: "fastclick", name: "Fast Click Challenge", image: "https://via.placeholder.com/400x200.png?text=Fast+Click+Challenge", url: "games/fastclick/index.html", plays: 0 }];
 
     async function logGameplay(gameId) {
       const device = localStorage.getItem("deviceId") || crypto.randomUUID();
       localStorage.setItem("deviceId", device);
-      await supabase.from('gameplays').insert([{ game: gameId, device, useragent: navigator.userAgent, ip_address: '', location: '' }]);
+      await SUPABASE.from('gameplays').insert([{ game: gameId, device, useragent: navigator.userAgent, ip_address: '', location: '' }]);
     }
 
     async function fetchPopularity() {
-      const { data } = await supabase.from('gameplays').select('game, count:game').group('game');
+      const { data } = await SUPABASE.from('gameplays').select('game, count:game').group('game');
       for (let g of games) {
         const found = data.find(d => d.game === g.id);
         g.plays = found ? found.count : 0;
@@ -42,7 +42,7 @@
     }
 
     async function fetchScores(gameId) {
-      const { data } = await supabase.from('highscores').select('player_name, score').eq('game', gameId).order('score', { ascending: false }).limit(5);
+      const { data } = await SUPABASE.from('highscores').select('player_name, score').eq('game', gameId).order('score', { ascending: false }).limit(5);
       return data || [];
     }
 
