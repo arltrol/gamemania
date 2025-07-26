@@ -33,13 +33,18 @@
       await SUPABASE.from('gameplays').insert([{ game: gameId, device, useragent: navigator.userAgent, ip_address: '', location: '' }]);
     }
 
-    async function fetchPopularity() {
-      const { data } = await SUPABASE.from('gameplays').select('game, count:game').group('game');
-      for (let g of games) {
-        const found = data.find(d => d.game === g.id);
-        g.plays = found ? found.count : 0;
-      }
+  async function fetchPopularity() {
+  const { data, error } = await SUPABASE.from('gameplays')
+    .select('game, count', { count: 'exact' })
+    .eq('game', 'in', games.map(g => g.id)); // Filter by games array
+  if (error) console.error(error);
+  else {
+    for (let g of games) {
+      const found = data.find(d => d.game === g.id);
+      g.plays = found ? found.count : 0;
     }
+  }
+}
 
     async function fetchScores(gameId) {
       const { data } = await SUPABASE.from('highscores').select('player_name, score').eq('game', gameId).order('score', { ascending: false }).limit(5);
