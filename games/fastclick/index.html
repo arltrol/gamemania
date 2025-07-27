@@ -61,7 +61,7 @@
   <script>
     const SUPABASE_URL = 'https://mkvuwpdwiqgoyfynvnfj.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_FkL4JjHLWajl7QddtQwQkg_HRtrNPmb';
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const SUPABASE = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     const clickBtn = document.getElementById("click-btn");
     const startBtn = document.getElementById("start-btn");
@@ -95,11 +95,15 @@
       clickBtn.style.display = "none";
       startBtn.style.display = "block";
       startBtn.textContent = "Play Again";
+      clickBtn.removeEventListener("click", updateScore);
 
-      const device = localStorage.getItem("deviceId") || crypto.randomUUID();
-      localStorage.setItem("deviceId", device);
+      let device = localStorage.getItem("deviceId");
+      if (!device) {
+        device = crypto.randomUUID();
+        localStorage.setItem("deviceId", device);
+      }
 
-      const { data: existing } = await supabase
+      const { data: existing } = await SUPABASE
         .from('highscores')
         .select('*')
         .eq('game', 'fastclick')
@@ -107,10 +111,10 @@
         .order('score', { ascending: false })
         .limit(1);
 
-      if (!existing[0] || score > existing[0].score) {
+      if (!existing?.[0] || score > existing[0].score) {
         const name = prompt("🎉 New high score! Enter your name:");
         if (name) {
-          await supabase.from('highscores').insert([{
+          await SUPABASE.from('highscores').insert([{
             game: 'fastclick',
             score,
             player_name: name,
