@@ -38,26 +38,29 @@
 }
     
 
-  async function fetchPopularity() {
+ async function fetchPopularity() {
   const { data, error } = await SUPABASE
     .from('gameplays')
-    .select('game, count:count(*)')
-    .in('game', games.map(g => g.id))
-    .group('game');
+    .select('game')
+    .in('game', games.map(g => g.id));
 
   if (error) {
     console.error('Fetch Popularity Error:', error.message || 'Unknown error');
-    for (let g of games) {
-      g.plays = 0;
-    }
+    for (let g of games) g.plays = 0;
     return;
   }
 
+  // Manually count occurrences of each game
+  const counts = {};
+  for (const row of data) {
+    counts[row.game] = (counts[row.game] || 0) + 1;
+  }
+
   for (let g of games) {
-    const found = data.find(d => d.game === g.id);
-    g.plays = found ? parseInt(found.count) : 0;
+    g.plays = counts[g.id] || 0;
   }
 }
+
 
 
   async function fetchScores(gameId) {
