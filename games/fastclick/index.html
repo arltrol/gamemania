@@ -6,104 +6,106 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
 <script>
-  const SUPABASE_URL = 'https://mkvuwpdwiqgoyfynvnfj.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_FkL4JjHLWajl7QddtQwQkg_HRtrNPmb';
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  window.onload = async () => {
+    const SUPABASE_URL = 'https://mkvuwpdwiqgoyfynvnfj.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_FkL4JjHLWajl7QddtQwQkg_HRtrNPmb';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // Rest of your game logic starts here...
-  const clickBtn = document.getElementById("click-btn");
-  const startBtn = document.getElementById("start-btn");
-  const scoreDisplay = document.getElementById("scoreboard");
-  const timerDisplay = document.getElementById("timer");
+    const clickBtn = document.getElementById("click-btn");
+    const startBtn = document.getElementById("start-btn");
+    const scoreDisplay = document.getElementById("scoreboard");
+    const timerDisplay = document.getElementById("timer");
 
-  let score = 0;
-  let timeLeft = 30;
-  let timerInterval;
+    let score = 0;
+    let timeLeft = 30;
+    let timerInterval;
 
-  function randomPosition() {
-    const maxX = window.innerWidth - 100;
-    const maxY = window.innerHeight - 100;
-    clickBtn.style.left = Math.random() * maxX + "px";
-    clickBtn.style.top = Math.random() * maxY + "px";
-  }
-
-  function showClickButton() {
-    clickBtn.style.display = "block";
-    randomPosition();
-  }
-
-  function updateScore() {
-    score++;
-    scoreDisplay.textContent = "Score: " + score;
-    showClickButton();
-  }
-
-  async function endGame() {
-    clearInterval(timerInterval);
-    clickBtn.style.display = "none";
-    startBtn.style.display = "block";
-    startBtn.textContent = "Play Again";
-    clickBtn.removeEventListener("click", updateScore);
-
-    let device = localStorage.getItem("deviceId");
-    if (!device) {
-      device = crypto.randomUUID();
-      localStorage.setItem("deviceId", device);
+    function randomPosition() {
+      const maxX = window.innerWidth - 100;
+      const maxY = window.innerHeight - 100;
+      clickBtn.style.left = Math.random() * maxX + "px";
+      clickBtn.style.top = Math.random() * maxY + "px";
     }
 
-    try {
-      const { data: existing, error } = await supabase
-        .from('highscores')
-        .select('*')
-        .eq('game', 'fastclick')
-        .eq('device', device)
-        .order('score', { ascending: false })
-        .limit(1);
+    function showClickButton() {
+      clickBtn.style.display = "block";
+      randomPosition();
+    }
 
-      if (error) throw error;
+    function updateScore() {
+      score++;
+      scoreDisplay.textContent = "Score: " + score;
+      showClickButton();
+    }
 
-      if (!existing?.[0] || score > existing[0].score) {
-        const name = prompt("🎉 New high score! Enter your name:");
-        if (name) {
-          const { error: insertError } = await supabase.from('highscores').insert([{
-            game: 'fastclick',
-            score,
-            player_name: name,
-            device,
-            ip_address: '',
-            location: '',
-            useragent: navigator.userAgent,
-          }]);
-          if (insertError) throw insertError;
-        }
-      } else {
-        alert("Game over! No new high score.");
+    async function endGame() {
+      clearInterval(timerInterval);
+      clickBtn.style.display = "none";
+      startBtn.style.display = "block";
+      startBtn.textContent = "Play Again";
+      clickBtn.removeEventListener("click", updateScore);
+
+      let device = localStorage.getItem("deviceId");
+      if (!device) {
+        device = crypto.randomUUID();
+        localStorage.setItem("deviceId", device);
       }
-    } catch (e) {
-      alert("Error checking score: " + e.message);
-      console.error(e);
+
+      try {
+        const { data: existing, error } = await supabase
+          .from('highscores')
+          .select('*')
+          .eq('game', 'fastclick')
+          .eq('device', device)
+          .order('score', { ascending: false })
+          .limit(1);
+
+        if (error) throw error;
+
+        if (!existing?.[0] || score > existing[0].score) {
+          const name = prompt("🎉 New high score! Enter your name:");
+          if (name) {
+            const { error: insertError } = await supabase.from('highscores').insert([{
+              game: 'fastclick',
+              score,
+              player_name: name,
+              device,
+              ip_address: '',
+              location: '',
+              useragent: navigator.userAgent,
+            }]);
+            if (insertError) throw insertError;
+          }
+        } else {
+          alert("Game over! No new high score.");
+        }
+      } catch (e) {
+        alert("Error checking score: " + e.message);
+        console.error(e);
+      }
     }
-  }
 
-  function updateTimer() {
-    timeLeft--;
-    timerDisplay.textContent = "Time: " + timeLeft;
-    if (timeLeft <= 0) endGame();
-  }
+    function updateTimer() {
+      timeLeft--;
+      timerDisplay.textContent = "Time: " + timeLeft;
+      if (timeLeft <= 0) endGame();
+    }
 
-  function startGame() {
-    score = 0;
-    timeLeft = 30;
-    scoreDisplay.textContent = "Score: 0";
-    timerDisplay.textContent = "Time: 30";
-    startBtn.style.display = "none";
-    showClickButton();
-    clickBtn.addEventListener("click", updateScore);
-    timerInterval = setInterval(updateTimer, 1000);
-  }
+    function startGame() {
+      score = 0;
+      timeLeft = 30;
+      scoreDisplay.textContent = "Score: 0";
+      timerDisplay.textContent = "Time: 30";
+      startBtn.style.display = "none";
+      showClickButton();
+      clickBtn.addEventListener("click", updateScore);
+      timerInterval = setInterval(updateTimer, 1000);
+    }
 
-  startBtn.addEventListener("click", startGame);
+    startBtn.addEventListener("click", startGame);
+  };
 </script>
+
 
   <style>
     html, body {
