@@ -4,6 +4,106 @@
   <meta charset="UTF-8" />
   <title>Fast Click Challenge</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+    const SUPABASE_URL = 'https://mkvuwpdwiqgoyfynvnfj.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_FkL4JjHLWajl7QddtQwQkg_HRtrNPmb';
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const clickBtn = document.getElementById("click-btn");
+    const startBtn = document.getElementById("start-btn");
+    const scoreDisplay = document.getElementById("scoreboard");
+    const timerDisplay = document.getElementById("timer");
+
+    let score = 0;
+    let timeLeft = 30;
+    let timerInterval;
+
+    function randomPosition() {
+      const maxX = window.innerWidth - 100;
+      const maxY = window.innerHeight - 100;
+      clickBtn.style.left = Math.random() * maxX + "px";
+      clickBtn.style.top = Math.random() * maxY + "px";
+    }
+
+    function showClickButton() {
+      clickBtn.style.display = "block";
+      randomPosition();
+    }
+
+    function updateScore() {
+      score++;
+      scoreDisplay.textContent = "Score: " + score;
+      showClickButton();
+    }
+
+    async function endGame() {
+      clearInterval(timerInterval);
+      clickBtn.style.display = "none";
+      startBtn.style.display = "block";
+      startBtn.textContent = "Play Again";
+      clickBtn.removeEventListener("click", updateScore);
+
+      let device = localStorage.getItem("deviceId");
+      if (!device) {
+        device = crypto.randomUUID();
+        localStorage.setItem("deviceId", device);
+      }
+
+      try {
+        const { data: existing, error } = await supabase
+          .from('highscores')
+          .select('*')
+          .eq('game', 'fastclick')
+          .eq('device', device)
+          .order('score', { ascending: false })
+          .limit(1);
+
+        if (error) throw error;
+
+        if (!existing?.[0] || score > existing[0].score) {
+          const name = prompt("🎉 New high score! Enter your name:");
+          if (name) {
+            const { error: insertError } = await supabase.from('highscores').insert([{
+              game: 'fastclick',
+              score,
+              player_name: name,
+              device,
+              ip_address: '',
+              location: '',
+              useragent: navigator.userAgent,
+            }]);
+            if (insertError) throw insertError;
+          }
+        } else {
+          alert("Game over! No new high score.");
+        }
+      } catch (e) {
+        alert("Error checking score: " + e.message);
+        console.error(e);
+      }
+    }
+
+    function updateTimer() {
+      timeLeft--;
+      timerDisplay.textContent = "Time: " + timeLeft;
+      if (timeLeft <= 0) endGame();
+    }
+
+    function startGame() {
+      score = 0;
+      timeLeft = 30;
+      scoreDisplay.textContent = "Score: 0";
+      timerDisplay.textContent = "Time: 30";
+      startBtn.style.display = "none";
+      showClickButton();
+      clickBtn.addEventListener("click", updateScore);
+      timerInterval = setInterval(updateTimer, 1000);
+    }
+
+    startBtn.addEventListener("click", startGame);
+  </script>
   <style>
     html, body {
       margin: 0;
@@ -56,115 +156,5 @@
   <button id="click-btn"></button>
   <button id="start-btn">Start Game</button>
   <a id="back-btn" href="../../index.html">← Back to GameMania</a>
-
-  <script type="module">
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-
-    const SUPABASE_URL = 'https://mkvuwpdwiqgoyfynvnfj.supabase.co';
-    const SUPABASE_KEY = 'sb_publishable_FkL4JjHLWajl7QddtQwQkg_HRtrNPmb';
-    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-
-    const clickBtn = document.getElementById("click-btn");
-    const startBtn = document.getElementById("start-btn");
-    const scoreDisplay = document.getElementById("scoreboard");
-    const timerDisplay = document.getElementById("timer");
-
-    let score = 0;
-    let timeLeft = 30;
-    let timerInterval;
-
-    function randomPosition() {
-      const maxX = window.innerWidth - 100;
-      const maxY = window.innerHeight - 100;
-      clickBtn.style.left = Math.random() * maxX + "px";
-      clickBtn.style.top = Math.random() * maxY + "px";
-    }
-
-    function showClickButton() {
-      clickBtn.style.display = "block";
-      randomPosition();
-    }
-
-    function updateScore() {
-      score++;
-      scoreDisplay.textContent = "Score: " + score;
-      showClickButton();
-    }
-
-    async function endGame() {
-      clearInterval(timerInterval);
-      clickBtn.style.display = "none";
-      startBtn.style.display = "block";
-      startBtn.textContent = "Play Again";
-      clickBtn.removeEventListener("click", updateScore);
-
-      let device = localStorage.getItem("deviceId");
-      if (!device) {
-        device = crypto.randomUUID();
-        localStorage.setItem("deviceId", device);
-      }
-
-      try {
-        const { data: existing, error: selectError } = await supabase
-          .from('highscores')
-          .select('*')
-          .eq('game', 'fastclick')
-          .eq('device', device)
-          .order('score', { ascending: false })
-          .limit(1);
-
-        if (selectError) {
-          console.error('Select error:', selectError.message);
-          return alert('Error checking score: ' + selectError.message);
-        }
-
-        if (!existing?.[0] || score > existing[0].score) {
-          const name = prompt("🎉 New high score! Enter your name:");
-          if (name) {
-            const { error: insertError } = await supabase.from('highscores').insert([{
-              game: 'fastclick',
-              score,
-              player_name: name,
-              device,
-              ip_address: '',
-              location: '',
-              useragent: navigator.userAgent,
-            }]);
-
-            if (insertError) {
-              console.error('Insert error:', insertError.message);
-              alert('Failed to save high score: ' + insertError.message);
-            } else {
-              alert('High score saved!');
-            }
-          }
-        } else {
-          alert("Game over! No new high score.");
-        }
-      } catch (err) {
-        console.error('Unexpected error:', err);
-        alert('Unexpected error: ' + err.message);
-      }
-    }
-
-    function updateTimer() {
-      timeLeft--;
-      timerDisplay.textContent = "Time: " + timeLeft;
-      if (timeLeft <= 0) endGame();
-    }
-
-    function startGame() {
-      score = 0;
-      timeLeft = 30;
-      scoreDisplay.textContent = "Score: 0";
-      timerDisplay.textContent = "Time: 30";
-      startBtn.style.display = "none";
-      showClickButton();
-      clickBtn.addEventListener("click", updateScore);
-      timerInterval = setInterval(updateTimer, 1000);
-    }
-
-    startBtn.addEventListener("click", startGame);
-  </script>
 </body>
 </html>
