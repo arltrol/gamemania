@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <title>Fast Click Challenge</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <style>
     html, body {
       margin: 0;
@@ -58,10 +57,12 @@
   <button id="start-btn">Start Game</button>
   <a id="back-btn" href="../../index.html">← Back to GameMania</a>
 
-  <script>
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
     const SUPABASE_URL = 'https://mkvuwpdwiqgoyfynvnfj.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_FkL4JjHLWajl7QddtQwQkg_HRtrNPmb';
-    const SUPABASE = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
     const clickBtn = document.getElementById("click-btn");
     const startBtn = document.getElementById("start-btn");
@@ -103,29 +104,46 @@
         localStorage.setItem("deviceId", device);
       }
 
-      const { data: existing } = await SUPABASE
-        .from('highscores')
-        .select('*')
-        .eq('game', 'fastclick')
-        .eq('device', device)
-        .order('score', { ascending: false })
-        .limit(1);
+      try {
+        const { data: existing, error: selectError } = await supabase
+          .from('highscores')
+          .select('*')
+          .eq('game', 'fastclick')
+          .eq('device', device)
+          .order('score', { ascending: false })
+          .limit(1);
 
-      if (!existing?.[0] || score > existing[0].score) {
-        const name = prompt("🎉 New high score! Enter your name:");
-        if (name) {
-          await SUPABASE.from('highscores').insert([{
-            game: 'fastclick',
-            score,
-            player_name: name,
-            device,
-            ip_address: '',
-            location: '',
-            useragent: navigator.userAgent,
-          }]);
+        if (selectError) {
+          console.error('Select error:', selectError.message);
+          return alert('Error checking score: ' + selectError.message);
         }
-      } else {
-        alert("Game over! No new high score.");
+
+        if (!existing?.[0] || score > existing[0].score) {
+          const name = prompt("🎉 New high score! Enter your name:");
+          if (name) {
+            const { error: insertError } = await supabase.from('highscores').insert([{
+              game: 'fastclick',
+              score,
+              player_name: name,
+              device,
+              ip_address: '',
+              location: '',
+              useragent: navigator.userAgent,
+            }]);
+
+            if (insertError) {
+              console.error('Insert error:', insertError.message);
+              alert('Failed to save high score: ' + insertError.message);
+            } else {
+              alert('High score saved!');
+            }
+          }
+        } else {
+          alert("Game over! No new high score.");
+        }
+      } catch (err) {
+        console.error('Unexpected error:', err);
+        alert('Unexpected error: ' + err.message);
       }
     }
 
