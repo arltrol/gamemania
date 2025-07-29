@@ -88,14 +88,35 @@
     let name = existing?.[0]?.player_name || lastName || '';
 
     if (score > topScore) {
-      const entered = prompt("🎉 New high score! Enter your name:", name)?.trim();
-      if (!entered) {
-        alert("No name entered. Score not saved.");
+  let entered = '';
+  let attempts = 0;
+
+  while (attempts < 3 && !entered) {
+    entered = prompt("🎉 New high score! Enter your name:", name)?.trim();
+
+    if (!entered) {
+      const retry = confirm("No name entered. Do you want to try again?");
+      if (!retry) {
+        alert("Score not saved.");
         return;
       }
-      name = entered;
-      localStorage.setItem("lastPlayerName", name);
+    } else if (!/^[a-zA-Z0-9 ]{2,20}$/.test(entered)) {
+      alert("Name must be 2–20 characters, using only letters, numbers, and spaces.");
+      entered = '';
     }
+
+    attempts++;
+  }
+
+  if (!entered) {
+    alert("Too many failed attempts. Score not saved.");
+    return;
+  }
+
+  name = entered;
+  localStorage.setItem("lastPlayerName", name);
+}
+
 
     const nameRaw = name || lastName || 'Anonymous';
     const formattedName = nameRaw.charAt(0).toUpperCase() + nameRaw.slice(1).toLowerCase();
