@@ -6,6 +6,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
   <script>
+async function fetchIPAndLocation() {
+  try {
+    const res = await fetch('https://ipapi.co/json');
+    const json = await res.json();
+    return {
+      ip: json.ip || '',
+      location: `${json.city || ''}, ${json.region || ''}, ${json.country_name || ''}`
+    };
+  } catch (e) {
+    return { ip: '', location: '' };
+  }
+}
+
+    
     window.onload = async () => {
       if (!window.supabase) {
         alert("Supabase SDK failed to load");
@@ -44,51 +58,68 @@
       }
 
       async function endGame() {
-        clearInterval(timerInterval);
-        clickBtn.style.display = "none";
-        startBtn.style.display = "block";
-        startBtn.textContent = "Play Again";
-        clickBtn.removeEventListener("click", updateScore);
+  clearInterval(timerInterval);
+  clickBtn.style.display = "none";
+  startBtn.style.display = "block";
+  startBtn.textContent = "Play Again";
+  clickBtn.removeEventListener("click", updateScore);
 
-        let device = localStorage.getItem("deviceId");
-        if (!device) {
-          device = crypto.randomUUID();
-          localStorage.setItem("deviceId", device);
-        }
+  let device = localStorage.getItem("deviceId");
+  if (!device) {
+    device = crypto.randomUUID();
+    localStorage.setItem("deviceId", device);
+  }
 
-        try {
-          const { data: existing, error } = await client
-            .from('highscores')
-            .select('*')
-            .eq('game', 'fastclick')
-            .eq('device', device)
-            .order('score', { ascending: false })
-            .limit(1);
+  // Fallback: get name used last time
+  let lastName = localStorage.getItem("lastPlayerName") || "";
 
-          if (error) throw error;
+  try {
+    // Fetch highest score for this device + case-insensitive name
+    const { data: existing, error } = await client
+      .from('highscores')
+      .select('*')
+      .eq('game', 'fastclick')
+      .eq('device', device)
+      .order('score', { ascending: false })
+      .limit(1);
 
-          if (!existing?.[0] || score > existing[0].score) {
-            const name = prompt("🎉 New high score! Enter your name:");
-            if (name) {
-              const { error: insertError } = await client.from('highscores').insert([{
-                game: 'fastclick',
-                score,
-                player_name: name,
-                device,
-                ip_address: '',
-                location: '',
-                useragent: navigator.userAgent,
-              }]);
-              if (insertError) throw insertError;
-            }
-          } else {
-            alert("Game over! No new high score.");
-          }
-        } catch (e) {
-          alert("Error checking score: " + e.message);
-          console.error(e);
-        }
-      }
+    if (error) throw error;
+
+    const suggestedName = existing?.[0]?.player_name || lastName || '';
+
+    const name = prompt("🎉 New high score! Enter your name:", suggestedName).trim();
+    if (!name) {
+      alert("No name entered. Score not saved.");
+      return;
+    }
+
+    localStorage.setItem("lastPlayerName", name); // Store for future
+
+    const { ip, location } = await fetchIPAndLocation();
+
+    // Upsert the new score (case-insensitive match using lowercased name)
+    const { error: upsertError } = await client.from('highscores').upsert([{
+      game: 'fastclick',
+      score,
+      player_name: name.charAt(0).toUpperCase() + name.slice(1).toLowerCase(),
+device,
+      ip_address: ip,
+      location,
+      useragent: navigator.userAgent,
+    }], {
+      onConflict: ['game', 'device', 'player_name']
+    });
+
+    if (upsertError) throw upsertError;
+
+    alert("🎯 High score saved!");
+
+  } catch (e) {
+    console.error(e);
+    alert("Error saving score: " + e.message);
+  }
+}
+
 
       function updateTimer() {
         timeLeft--;
