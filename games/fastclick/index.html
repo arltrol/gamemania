@@ -114,6 +114,15 @@ device,
 
     alert("🎯 High score saved!");
 
+    await client.from('gameplays').insert([{
+  game: 'fastclick',
+  device,
+  ip_address: ip,
+  location,
+  useragent: navigator.userAgent
+}]);
+
+
   } catch (e) {
     console.error(e);
     alert("Error saving score: " + e.message);
