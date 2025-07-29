@@ -57,108 +57,121 @@
       }
 
       async function endGame() {
-  clearInterval(timerInterval);
-  clickBtn.style.display = "none";
-  startBtn.style.display = "block";
-  startBtn.textContent = "Play Again";
-  clickBtn.removeEventListener("click", updateScore);
+        clearInterval(timerInterval);
+        clickBtn.style.display = "none";
+        startBtn.style.display = "block";
+        startBtn.textContent = "Play Again";
+        clickBtn.removeEventListener("click", updateScore);
 
-  let device = localStorage.getItem("deviceId");
-  if (!device) {
-    device = crypto.randomUUID();
-    localStorage.setItem("deviceId", device);
-  }
+        let device = localStorage.getItem("deviceId");
+        if (!device) {
+          device = crypto.randomUUID();
+          localStorage.setItem("deviceId", device);
+        }
 
-  let lastName = localStorage.getItem("lastPlayerName") || "";
-  const { ip, location } = await fetchIPAndLocation();
-  const deviceType = /Mobi|Android/i.test(navigator.userAgent) ? "Mobile" : "Desktop";
+        let lastName = localStorage.getItem("lastPlayerName") || "";
+        const { ip, location } = await fetchIPAndLocation();
+        const deviceType = /Mobi|Android/i.test(navigator.userAgent) ? "Mobile" : "Desktop";
 
-  try {
-    const { data: existing, error } = await client
-      .from('highscores')
-      .select('*')
-      .eq('game', 'fastclick')
-      .eq('device', device)
-      .order('score', { ascending: false })
-      .limit(1);
+        try {
+          const { data: existing, error } = await client
+            .from('highscores')
+            .select('*')
+            .eq('game', 'fastclick')
+            .eq('device', device)
+            .order('score', { ascending: false })
+            .limit(1);
 
-    if (error) throw error;
+          if (error) throw error;
 
-    const topScore = existing?.[0]?.score || 0;
-    let name = existing?.[0]?.player_name || lastName || '';
+          const topScore = existing?.[0]?.score || 0;
+          let name = existing?.[0]?.player_name || lastName || '';
 
-    if (score > topScore) {
-  let entered = '';
-  let attempts = 0;
+          const nameRaw = name || lastName || 'Anonymous';
+          const formattedName = nameRaw.charAt(0).toUpperCase() + nameRaw.slice(1).toLowerCase();
 
-  while (attempts < 3 && !entered) {
-    entered = prompt("🎉 New high score! Enter your name:", name)?.trim();
+          if (score > topScore) {
+            let entered = '';
+            let attempts = 0;
 
-    if (!entered) {
-      const retry = confirm("No name entered. Do you want to try again?");
-      if (!retry) {
-        alert("Score not saved.");
-        return;
+            while (attempts < 3 && !entered) {
+              entered = prompt("🎉 New high score! Enter your name:", name)?.trim();
+
+              if (!entered) {
+                const retry = confirm("No name entered. Do you want to try again?");
+                if (!retry) {
+                  alert("Score not saved.");
+                  break;
+                }
+              } else if (!/^[a-zA-Z0-9 ]{2,20}$/.test(entered)) {
+                alert("Name must be 2–20 characters, using only letters, numbers, and spaces.");
+                entered = '';
+              }
+
+              attempts++;
+            }
+
+            if (entered) {
+              name = entered;
+              localStorage.setItem("lastPlayerName", name);
+
+              const { error: upsertError } = await client.from('highscores').upsert([{
+                game: 'fastclick',
+                score,
+                player_name: name,
+                device,
+                ip_address: ip,
+                location,
+                useragent: navigator.userAgent,
+                device_type: deviceType
+              }], {
+                onConflict: ['game', 'device', 'player_name']
+              });
+
+              if (upsertError) throw upsertError;
+              alert("🎯 High score saved!");
+            }
+          } else {
+            console.log("Score not high enough to save.");
+          }
+
+          await client.from('gameplays').insert([{
+            game: 'fastclick',
+            score,
+            player_name: formattedName,
+            device,
+            ip_address: ip,
+            location,
+            useragent: navigator.userAgent,
+            device_type: deviceType
+          }]);
+
+        } catch (e) {
+          console.error(e);
+          alert("Error saving score: " + e.message);
+        }
       }
-    } else if (!/^[a-zA-Z0-9 ]{2,20}$/.test(entered)) {
-      alert("Name must be 2–20 characters, using only letters, numbers, and spaces.");
-      entered = '';
-    }
 
-    attempts++;
-  }
+      function startGame() {
+        score = 0;
+        timeLeft = 30;
+        scoreDisplay.textContent = "Score: 0";
+        timerDisplay.textContent = "Time: 30";
+        startBtn.style.display = "none";
+        showClickButton();
+        clickBtn.addEventListener("click", updateScore);
 
-  if (!entered) {
-    alert("Too many failed attempts. Score not saved.");
-    return;
-  }
+        timerInterval = setInterval(() => {
+          timeLeft--;
+          timerDisplay.textContent = "Time: " + timeLeft;
+          if (timeLeft <= 0) {
+            endGame();
+          }
+        }, 1000);
+      }
 
-  name = entered;
-  localStorage.setItem("lastPlayerName", name);
-}
-
-
-    const nameRaw = name || lastName || 'Anonymous';
-    const formattedName = nameRaw.charAt(0).toUpperCase() + nameRaw.slice(1).toLowerCase();
-
-    if (score > topScore) {
-      const { error: upsertError } = await client.from('highscores').upsert([{
-        game: 'fastclick',
-        score,
-        player_name: formattedName,
-        device,
-        ip_address: ip,
-        location,
-        useragent: navigator.userAgent,
-        device_type: deviceType
-      }], {
-        onConflict: ['game', 'device', 'player_name']
-      });
-
-      if (upsertError) throw upsertError;
-      alert("🎯 High score saved!");
-    } else {
-      console.log("Score not high enough to save.");
-    }
-
-    await client.from('gameplays').insert([{
-      game: 'fastclick',
-      score,
-      player_name: formattedName,
-      device,
-      ip_address: ip,
-      location,
-      useragent: navigator.userAgent,
-      device_type: deviceType
-    }]);
-
-  } catch (e) {
-    console.error(e);
-     alert("Error saving score: " + e.message);
-  }
-}  // <- closes endGame
-}  // <- closes window.onload
-
+      startBtn.addEventListener("click", startGame);
+    };
   </script>
 
   <style>
