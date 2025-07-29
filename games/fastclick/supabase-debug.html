@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Supabase Debugger</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f4f4f4; }
+    button { display: block; margin: 10px 0; padding: 10px; font-size: 16px; }
+    #output { white-space: pre-wrap; background: #fff; padding: 10px; border: 1px solid #ccc; }
+  </style>
+</head>
+<body>
+  <h2>🧪 Supabase Debug Tool</h2>
+  <button onclick="connectToSupabase()">1️⃣ Connect to Supabase</button>
+  <button onclick="queryGameplays()">2️⃣ Query 'gameplays' Table</button>
+  <button onclick="queryHighscores()">3️⃣ Query 'highscores' with filters</button>
+  <button onclick="insertHighscore()">4️⃣ Insert New Highscore</button>
+  <h3>🔍 Output:</h3>
+  <div id="output">Ready.</div>
+
+<script>
+  const SUPABASE_URL = 'https://mkvuwpdwiqgoyfynvnfj.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_FkL4JjHLWajl7QddtQwQkg_HRtrNPmb';
+  const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const output = document.getElementById("output");
+
+  function log(msg) {
+    console.log(msg);
+    output.textContent = typeof msg === 'object' ? JSON.stringify(msg, null, 2) : msg;
+  }
+
+  async function connectToSupabase() {
+    try {
+      const { data, error } = await client.from('gameplays').select('*').limit(1);
+      if (error) {
+        log("❌ ERROR connecting to Supabase:\n" + error.message);
+      } else {
+        log("✅ CONNECTED to Supabase with API key:\n" + SUPABASE_KEY);
+      }
+    } catch (e) {
+      log("🚨 Exception: " + e.message);
+    }
+  }
+
+  async function queryGameplays() {
+    try {
+      const games = [{ id: 'fastclick' }, { id: 'anothergame' }];
+      const { data, error } = await client
+        .from('gameplays')
+        .select('game')
+        .in('game', games.map(g => g.id));
+
+      if (error) {
+        log("❌ Error fetching gameplays:\n" + error.message);
+      } else {
+        log("📊 Gameplays query result:\n" + JSON.stringify(data, null, 2));
+      }
+    } catch (e) {
+      log("🚨 Exception: " + e.message);
+    }
+  }
+
+  async function queryHighscores() {
+    const device = localStorage.getItem("deviceId") || crypto.randomUUID();
+    localStorage.setItem("deviceId", device);
+
+    try {
+      const { data, error } = await client
+        .from('highscores')
+        .select('*')
+        .eq('game', 'fastclick')
+        .eq('device', device)
+        .order('score', { ascending: false })
+        .limit(1);
+
+      if (error) {
+        log("❌ Error fetching highscores:\n" + error.message);
+      } else {
+        log("🏆 Highscore query result:\n" + JSON.stringify(data, null, 2));
+      }
+    } catch (e) {
+      log("🚨 Exception: " + e.message);
+    }
+  }
+
+  async function insertHighscore() {
+    const name = prompt("Enter your name for test insert:");
+    if (!name) return;
+
+    const device = localStorage.getItem("deviceId") || crypto.randomUUID();
+    localStorage.setItem("deviceId", device);
+
+    try {
+      const { error } = await client.from('highscores').insert([{
+        game: 'fastclick',
+        score: Math.floor(Math.random() * 100), // test value
+        player_name: name,
+        device,
+        ip_address: '',
+        location: '',
+        useragent: navigator.userAgent,
+      }]);
+
+      if (error) {
+        log("❌ Insert failed:\n" + error.message);
+      } else {
+        log("✅ Insert successful! New high score saved for " + name);
+      }
+    } catch (e) {
+      log("🚨 Exception inserting:\n" + e.message);
+    }
+  }
+</script>
+</body>
+</html>
