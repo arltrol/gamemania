@@ -123,7 +123,8 @@
                 ip_address: ip,
                 location,
                 useragent: navigator.userAgent,
-                device_type: deviceType
+                device_type: deviceType,
+                created_at: new Date().toISOString()
               }], {
                 onConflict: ['game', 'device', 'player_name']
               });
@@ -143,7 +144,9 @@
             ip_address: ip,
             location,
             useragent: navigator.userAgent,
-            device_type: deviceType
+            device_type: deviceType,
+            timestamp: new Date().toISOString()  // ✅ add this
+
           }]);
 
         } catch (e) {
