@@ -3,65 +3,228 @@
 <head>
   <meta charset="UTF-8" />
   <title>Fast Click Challenge</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <script>
+    async function fetchIPAndLocation() {
+      try {
+        const res = await fetch('https://ipapi.co/json');
+        const json = await res.json();
+        return {
+          ip: json.ip || '',
+          location: `${json.city || ''}, ${json.region || ''}, ${json.country_name || ''}`
+        };
+      } catch (e) {
+        return { ip: '', location: '' };
+      }
+    }
+
+    window.onload = async () => {
+      if (!window.supabase) {
+        alert("Supabase SDK failed to load");
+        return;
+      }
+
+      const SUPABASE_URL = 'https://mkvuwpdwiqgoyfynvnfj.supabase.co';
+      const SUPABASE_KEY = 'sb_publishable_FkL4JjHlWajl7QddtQwQkg_HRtrNPmb';
+      const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+      const clickBtn = document.getElementById("click-btn");
+      const startBtn = document.getElementById("start-btn");
+      const scoreDisplay = document.getElementById("scoreboard");
+      const timerDisplay = document.getElementById("timer");
+
+      let score = 0;
+      let timeLeft = 30;
+      let timerInterval;
+
+      function randomPosition() {
+        const maxX = window.innerWidth - 100;
+        const maxY = window.innerHeight - 100;
+        clickBtn.style.left = Math.random() * maxX + "px";
+        clickBtn.style.top = Math.random() * maxY + "px";
+      }
+
+      function showClickButton() {
+        clickBtn.style.display = "block";
+        randomPosition();
+      }
+
+      function updateScore() {
+        score++;
+        scoreDisplay.textContent = "Score: " + score;
+        showClickButton();
+      }
+
+      async function endGame() {
+        clearInterval(timerInterval);
+        clickBtn.style.display = "none";
+        startBtn.style.display = "block";
+        startBtn.textContent = "Play Again";
+        clickBtn.removeEventListener("click", updateScore);
+
+        let device = localStorage.getItem("deviceId");
+        if (!device) {
+          device = crypto.randomUUID();
+          localStorage.setItem("deviceId", device);
+        }
+
+        let lastName = localStorage.getItem("lastPlayerName") || "";
+        const { ip, location } = await fetchIPAndLocation();
+        const deviceType = /Mobi|Android/i.test(navigator.userAgent) ? "Mobile" : "Desktop";
+
+        try {
+          const { data: existing, error } = await client
+            .from('highscores')
+            .select('*')
+            .eq('game', 'fastclick')
+            .eq('device', device)
+            .order('score', { ascending: false })
+            .limit(1);
+
+          if (error) throw error;
+
+          const topScore = existing?.[0]?.score || 0;
+          let name = existing?.[0]?.player_name || lastName || '';
+
+          const nameRaw = name || lastName || 'Anonymous';
+          const formattedName = nameRaw.charAt(0).toUpperCase() + nameRaw.slice(1).toLowerCase();
+
+          if (score > topScore) {
+            let entered = '';
+            let attempts = 0;
+
+            while (attempts < 3 && !entered) {
+              entered = prompt("🎉 New high score! Enter your name:", name)?.trim();
+
+              if (!entered) {
+                const retry = confirm("No name entered. Do you want to try again?");
+                if (!retry) {
+                  alert("Score not saved.");
+                  break;
+                }
+              } else if (!/^[a-zA-Z0-9 ]{2,20}$/.test(entered)) {
+                alert("Name must be 2–20 characters, using only letters, numbers, and spaces.");
+                entered = '';
+              }
+
+              attempts++;
+            }
+
+            if (entered) {
+              name = entered;
+              localStorage.setItem("lastPlayerName", name);
+
+              const { error: upsertError } = await client.from('highscores').upsert([{
+                game: 'fastclick',
+                score,
+                player_name: name,
+                device,
+                ip_address: ip,
+                location,
+                useragent: navigator.userAgent,
+                device_type: deviceType
+              }], {
+                onConflict: ['game', 'device', 'player_name']
+              });
+
+              if (upsertError) throw upsertError;
+              alert("🎯 High score saved!");
+            }
+          } else {
+            console.log("Score not high enough to save.");
+          }
+
+          await client.from('gameplays').insert([{
+            game: 'fastclick',
+            score,
+            player_name: formattedName,
+            device,
+            ip_address: ip,
+            location,
+            useragent: navigator.userAgent,
+            device_type: deviceType
+          }]);
+
+        } catch (e) {
+          console.error(e);
+          alert("Error saving score: " + e.message);
+        }
+      }
+
+      function startGame() {
+        score = 0;
+        timeLeft = 30;
+        scoreDisplay.textContent = "Score: 0";
+        timerDisplay.textContent = "Time: 30";
+        startBtn.style.display = "none";
+        showClickButton();
+        clickBtn.addEventListener("click", updateScore);
+
+        timerInterval = setInterval(() => {
+          timeLeft--;
+          timerDisplay.textContent = "Time: " + timeLeft;
+          if (timeLeft <= 0) {
+            endGame();
+          }
+        }, 1000);
+      }
+
+      startBtn.addEventListener("click", startGame);
+    };
+  </script>
+
   <style>
-    body {
-      background-color: #f0fff0;
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #f0fff0;
       font-family: Arial, sans-serif;
-      text-align: center;
-      padding: 20px;
+      overflow: hidden;
     }
-    button {
+    #scoreboard, #timer {
+      position: absolute;
       font-size: 20px;
-      padding: 10px 20px;
-      margin: 10px;
+      font-weight: bold;
     }
-    #clickButton {
-      font-size: 24px;
+    #scoreboard { top: 10px; left: 10px; }
+    #timer { top: 10px; right: 10px; }
+    #click-btn {
+      position: absolute;
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background-color: #ff6666;
+      border: none;
+      cursor: pointer;
+      display: none;
+      transition: top 0.2s, left 0.2s;
+    }
+    #start-btn {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
       padding: 20px 40px;
+      font-size: 20px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    #back-btn {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      font-size: 16px;
     }
   </style>
 </head>
 <body>
-  <h1>Fast Click Challenge</h1>
-  <p id="scoreDisplay">Score: 0</p>
-  <p id="timerDisplay">Time: 5s</p>
-  <button id="startButton">Start Game</button>
-  <button id="clickButton" style="display:none;">Click me!</button>
-  <br />
-  <a href="/">&larr; Back to GameMania</a>
-
-  <script>
-    const SUPABASE_URL = 'https://mkvuwpdwiggoyfynvnfj.supabase.co';
-    const SUPABASE_KEY = 'your-anon-key';
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-    let score = 0;
-    let timeLeft = 5;
-    let gameInterval;
-    const game = 'fastclick';
-
-    const device = localStorage.getItem("device_id") || (() => {
-      const newId = crypto.randomUUID();
-      localStorage.setItem("device_id", newId);
-      return newId;
-    })();
-
-    document.getElementById("startButton").onclick = startGame;
-    document.getElementById("clickButton").onclick = () => {
-      score++;
-      document.getElementById("scoreDisplay").innerText = `Score: ${score}`;
-    };
-
-    async function startGame() {
-      score = 0;
-      timeLeft = 5;
-      document.getElementById("scoreDisplay").innerText = "Score: 0";
-      document.getElementById("timerDisplay").innerText = "Time: 5s";
-      document.getElementById("startButton").style.display = "none";
-      document.getElementById("clickButton").style.display = "inline-block";
-
-      gameInterval = setInterval(() => {
-        timeLeft--;
-        document.getElementById("tim
+  <div id="scoreboard">Score: 0</div>
+  <div id="timer">Time: 30</div>
+  <button id="click-btn"></button>
+  <button id="start-btn">Start Game</button>
+  <a id="back-btn" href="../../index.html">← Back to GameMania</a>
+</body>
+</html>
