@@ -29,48 +29,60 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Lights for better 3D feel
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        // Lights for cave-like atmosphere
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.6); // Dimmer for cave feel
         scene.add(ambientLight);
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
         directionalLight.position.set(0, 20, 10);
         scene.add(directionalLight);
 
-        // Tunnel (narrower path with taller walls)
+        // Textures
+        const textureLoader = new THREE.TextureLoader();
+        const pathTexture = textureLoader.load('https://threejs.org/examples/textures/checkerboard.png'); // Grid-like texture
+        pathTexture.wrapS = THREE.RepeatWrapping;
+        pathTexture.wrapT = THREE.RepeatWrapping;
+        pathTexture.repeat.set(10, 100);
+        const wallTexture = textureLoader.load('https://threejs.org/examples/textures/terrain/terrain.jpg'); // Rough rocky texture
+        wallTexture.wrapS = THREE.RepeatWrapping;
+        wallTexture.wrapT = THREE.RepeatWrapping;
+        wallTexture.repeat.set(5, 5);
+
+        // Tunnel (narrower path with textured floor)
         const floorGeometry = new THREE.PlaneGeometry(20, 1000);
-        const floorMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00 });
-        const floor = new THREE.LineSegments(new THREE.EdgesGeometry(floorGeometry), floorMaterial);
+        const floorMaterial = new THREE.MeshStandardMaterial({ map: pathTexture, color: 0x00ff00, roughness: 0.8, metalness: 0 });
+        const floor = new THREE.Mesh(floorGeometry, floorMaterial);
         floor.rotation.x = -Math.PI / 2;
         floor.position.z = -500;
         scene.add(floor);
 
-        const floorSolidGeometry = new THREE.PlaneGeometry(20, 1000);
-        const floorSolidMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00, transparent: true, opacity: 0.3, roughness: 0.8, metalness: 0 });
-        const floorSolid = new THREE.Mesh(floorSolidGeometry, floorSolidMaterial);
-        floorSolid.rotation.x = -Math.PI / 2;
-        floorSolid.position.z = -500;
-        scene.add(floorSolid);
-
-        // Walls (adjusted to avoid foreground)
-        const wallGeometry = new THREE.PlaneGeometry(1000, 20); // Depth along z, height
-        const wallMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000, roughness: 0.7, metalness: 0 });
-        const leftWall = new THREE.Mesh(wallGeometry, wallMaterial);
-        leftWall.position.set(-10, 10, -500); // Start further back
-        leftWall.rotation.y = Math.PI / 2; // Rotate to face inward
+        // Walls (textured and color-changing)
+        const wallGeometry = new THREE.PlaneGeometry(1000, 20);
+        const wallMaterial = new THREE.MeshStandardMaterial({ map: wallTexture, color: 0xff0000, roughness: 0.7, metalness: 0 });
+        const leftWall = new THREE.Mesh(wallGeometry, wallMaterial.clone());
+        leftWall.position.set(-10, 10, -500);
+        leftWall.rotation.y = Math.PI / 2;
         scene.add(leftWall);
-        const rightWall = new THREE.Mesh(wallGeometry, wallMaterial);
-        rightWall.position.set(10, 10, -500); // Start further back
-        rightWall.rotation.y = -Math.PI / 2; // Rotate to face inward
+        const rightWall = new THREE.Mesh(wallGeometry, wallMaterial.clone());
+        rightWall.position.set(10, 10, -500);
+        rightWall.rotation.y = -Math.PI / 2;
         scene.add(rightWall);
 
-        // Ball (larger with better material)
+        // Ceiling (textured green)
+        const ceilingGeometry = new THREE.PlaneGeometry(20, 1000);
+        const ceilingMaterial = new THREE.MeshStandardMaterial({ map: pathTexture, color: 0x00ff00, roughness: 0.8, metalness: 0 });
+        const ceiling = new THREE.Mesh(ceilingGeometry, ceilingMaterial);
+        ceiling.rotation.x = Math.PI / 2;
+        ceiling.position.set(0, 20, -500); // 10 units above floor
+        scene.add(ceiling);
+
+        // Ball
         const ballGeometry = new THREE.SphereGeometry(1, 64, 64);
         const ballMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00, roughness: 0.4, metalness: 0.2 });
         const ball = new THREE.Mesh(ballGeometry, ballMaterial);
         ball.position.y = 1;
         scene.add(ball);
 
-        // Obstacles (with better material)
+        // Obstacles
         let obstacles = [];
         const obstacleGeometry = new THREE.BoxGeometry(1, 1, 1);
         const obstacleMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000, roughness: 0.6, metalness: 0 });
@@ -85,7 +97,7 @@
             obstacles.push(obstacle);
         }
 
-        // Landscapes (red mountains passing by)
+        // Landscapes (red mountains)
         const landscapes = [];
         const mountainMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000, roughness: 0.8, metalness: 0 });
         for (let i = 0; i < 20; i++) {
@@ -112,9 +124,9 @@
             landscapes.push(mountainRight);
         }
 
-        // Camera (closer view, adjusted to avoid clipping)
-        camera.position.set(0, 8, 12); // Slightly adjusted for better view
-        camera.rotation.x = -Math.PI / 4; // Tilted for dynamic view
+        // Camera
+        camera.position.set(0, 8, 12);
+        camera.rotation.x = -Math.PI / 4;
         camera.lookAt(ball.position);
 
         // Controls
@@ -181,6 +193,12 @@
                 camera.position.z = ball.position.z + 12;
                 camera.lookAt(ball.position);
 
+                // Change wall color every 300 points
+                const colorStage = Math.floor(score / 300) % 4;
+                const wallColors = [0xff0000, 0x0000ff, 0xff00ff, 0xffff00]; // Red, Blue, Purple, Yellow
+                leftWall.material.color.set(wallColors[colorStage]);
+                rightWall.material.color.set(wallColors[colorStage]);
+
                 obstacles.forEach(obstacle => {
                     const dx = ball.position.x - obstacle.position.x;
                     const dz = ball.position.z - obstacle.position.z;
@@ -244,6 +262,8 @@
                     -landscape.geometry.parameters.depth / 2 - Math.floor(i / 2) * 50 - Math.random() * 20
                 );
             });
+            leftWall.material.color.set(0xff0000); // Reset to initial color
+            rightWall.material.color.set(0xff0000);
         }
 
         animate();
