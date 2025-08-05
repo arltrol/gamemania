@@ -8,13 +8,15 @@
         body { margin: 0; overflow: hidden; background: #000; }
         canvas { display: block; }
         #score { position: absolute; top: 10px; left: 10px; color: white; font-family: Arial, sans-serif; font-size: 1.5em; }
+        #bounces { position: absolute; top: 40px; left: 10px; color: white; font-family: Arial, sans-serif; font-size: 1.5em; }
         #gameOver { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-family: Arial, sans-serif; font-size: 2em; text-align: center; display: none; }
         #startMenu { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-family: Arial, sans-serif; font-size: 2em; text-align: center; display: block; }
-        #startButton { font-size: 1em; padding: 10px 20px; background: #00ff00; color: black; border: none; cursor: pointer; }
+        #startButton { font-size: 1em; padding: 10px 20px; background: #006600; color: black; border: none; cursor: pointer; }
     </style>
 </head>
 <body>
     <div id="score">Score: 0</div>
+    <div id="bounces">Bounces: 3</div>
     <div id="gameOver">Game Over! Press R to Restart</div>
     <div id="startMenu">
         Ball Runner Game<br>
@@ -36,19 +38,18 @@
         directionalLight.position.set(0, 20, 10);
         scene.add(directionalLight);
 
-        // Fallback materials (since textures aren't loading)
-        const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00, roughness: 0.8, metalness: 0 });
+        // Materials
+        const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x006600, roughness: 0.8, metalness: 0 }); // Darker green
         const wallMaterialBase = new THREE.MeshStandardMaterial({ color: 0xff0000, roughness: 0.7, metalness: 0 });
-        const ceilingMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00, roughness: 0.8, metalness: 0 });
+        const ceilingMaterial = new THREE.MeshStandardMaterial({ color: 0x006600, roughness: 0.8, metalness: 0 }); // Darker green
 
-        // Tunnel (green floor)
+        // Tunnel
         const floorGeometry = new THREE.PlaneGeometry(20, 1000);
         const floor = new THREE.Mesh(floorGeometry, floorMaterial);
         floor.rotation.x = -Math.PI / 2;
         floor.position.z = -500;
         scene.add(floor);
 
-        // Walls (red)
         const wallGeometry = new THREE.PlaneGeometry(1000, 20);
         const leftWall = new THREE.Mesh(wallGeometry, wallMaterialBase.clone());
         leftWall.position.set(-10, 10, -500);
@@ -59,7 +60,6 @@
         rightWall.rotation.y = -Math.PI / 2;
         scene.add(rightWall);
 
-        // Ceiling (green)
         const ceilingGeometry = new THREE.PlaneGeometry(20, 1000);
         const ceiling = new THREE.Mesh(ceilingGeometry, ceilingMaterial);
         ceiling.rotation.x = Math.PI / 2;
@@ -108,7 +108,7 @@
         // Blinking circles (collectibles)
         let circles = [];
         const circleGeometry = new THREE.SphereGeometry(0.5, 32, 32);
-        const circleMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 1 });
+        const circleMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 1 }); // Yellow for contrast
         function addCircle() {
             const circle = new THREE.Mesh(circleGeometry, circleMaterial.clone());
             const x = (Math.random() - 0.5) * 18;
@@ -118,7 +118,7 @@
             circles.push(circle);
         }
 
-        // Landscapes (red mountains)
+        // Landscapes
         const landscapes = [];
         const mountainMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000, roughness: 0.8, metalness: 0 });
         for (let i = 0; i < 20; i++) {
@@ -151,12 +151,14 @@
         camera.lookAt(ball.position);
 
         // Controls
-        const keys = { ArrowLeft: false, ArrowRight: false, KeyA: false, KeyD: false, KeyR: false };
-        const touch = { active: false, startX: 0, deltaX: 0 };
+        const keys = { ArrowLeft: false, ArrowRight: false, KeyA: false, KeyD: false, KeyR: false, Space: false };
+        const touch = { active: false, startX: 0, startY: 0, deltaX: 0, deltaY: 0 };
         const lateralSpeed = 0.1;
         let forwardSpeed = 0.1;
         let score = 0;
+        let bounces = 3;
         const scoreElement = document.getElementById('score');
+        const bouncesElement = document.getElementById('bounces');
         let gameOver = false;
         const gameOverText = document.getElementById('gameOver');
         let gameStarted = false;
@@ -174,14 +176,35 @@
         document.addEventListener('touchstart', (e) => {
             touch.active = true;
             touch.startX = e.touches[0].clientX;
+            touch.startY = e.touches[0].clientY;
         });
         document.addEventListener('touchmove', (e) => {
             if (touch.active) {
                 touch.deltaX = e.touches[0].clientX - touch.startX;
+                touch.deltaY = e.touches[0].clientY - touch.startY;
                 touch.startX = e.touches[0].clientX;
+                touch.startY = e.touches[0].clientY;
             }
         });
-        document.addEventListener('touchend', () => { touch.active = false; touch.deltaX = 0; });
+        document.addEventListener('touchend', () => {
+            if (touch.active && touch.deltaY < -20) jump(); // Swipe up
+            touch.active = false;
+            touch.deltaX = 0;
+            touch.deltaY = 0;
+        });
+
+        // Jump function
+        function jump() {
+            if (bounces > 0 && ball.position.y <= 1) {
+                ball.position.y = 8; // High jump
+                ball.position.z -= 5; // Forward movement
+                bounces--;
+                bouncesElement.textContent = `Bounces: ${bounces}`;
+                setTimeout(() => {
+                    ball.position.y = 1; // Land safely
+                }, 500); // 0.5-second jump duration
+            }
+        }
 
         // Animation loop
         function animate() {
@@ -193,17 +216,19 @@
                     }
                 }
 
-                // Randomly add circles (max 5 at a time, low probability)
                 if (circles.length < 5 && Math.random() < 0.02) addCircle();
 
-                // Blink circles
                 circles.forEach(circle => {
                     circle.material.opacity = 0.5 + 0.5 * Math.sin(Date.now() * 0.005);
                 });
 
                 if (keys.ArrowLeft || keys.KeyA) ball.position.x -= lateralSpeed;
                 if (keys.ArrowRight || keys.KeyD) ball.position.x += lateralSpeed;
-                if (touch.active) ball.position.x += touch.deltaX * 0.01;
+                if (touch.active && touch.deltaX) ball.position.x += touch.deltaX * 0.01;
+                if (keys.Space) {
+                    jump();
+                    keys.Space = false; // Reset after jump
+                }
 
                 ball.position.x = Math.max(-9, Math.min(9, ball.position.x));
 
@@ -220,24 +245,22 @@
                 leftWall.material.color.set(wallColors[colorStage]);
                 rightWall.material.color.set(wallColors[colorStage]);
 
-                // Collision with obstacles
                 obstacles.forEach(obstacle => {
                     const dx = ball.position.x - obstacle.position.x;
                     const dz = ball.position.z - obstacle.position.z;
                     const distance = Math.sqrt(dx * dx + dz * dz);
-                    if (distance < 2) {
+                    if (distance < 2 && ball.position.y <= 1) {
                         gameOver = true;
                         gameOverText.style.display = 'block';
                     }
                 });
 
-                // Collect circles
                 circles = circles.filter(circle => {
                     const dx = ball.position.x - circle.position.x;
                     const dz = ball.position.z - circle.position.z;
                     const distance = Math.sqrt(dx * dx + dz * dz);
                     if (distance < 1.5) {
-                        score += 10; // Extra points
+                        score += 10;
                         scene.remove(circle);
                         return false;
                     }
@@ -259,7 +282,6 @@
                     }
                 });
 
-                // Move circles forward
                 circles.forEach(circle => {
                     circle.position.z += forwardSpeed;
                     if (circle.position.z > 5) {
@@ -288,7 +310,9 @@
             ball.position.set(0, 1, 0);
             score = 0;
             forwardSpeed = 0.1;
+            bounces = 3;
             scoreElement.textContent = `Score: ${Math.floor(score)}`;
+            bouncesElement.textContent = `Bounces: ${bounces}`;
             gameOver = false;
             gameOverText.style.display = 'none';
             obstacles.forEach(obstacle => {
