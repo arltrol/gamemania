@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ball Runner Game</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; }
+        canvas { display: block; }
+        #score { position: absolute; top: 10px; left: 10px; color: white; font-family: Arial, sans-serif; font-size: 1.5em; }
+        #gameOver { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-family: Arial, sans-serif; font-size: 2em; text-align: center; display: none; }
+    </style>
+</head>
+<body>
+    <div id="score">Score: 0</div>
+    <div id="gameOver">Game Over! Press R to Restart</div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Tunnel (grid floor and walls)
+        const floorGeometry = new THREE.PlaneGeometry(100, 20);
+        const floorMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00 });
+        const floor = new THREE.LineSegments(
+            new THREE.EdgesGeometry(floorGeometry),
+            floorMaterial
+        );
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.z = -10;
+        scene.add(floor);
+
+        const wallGeometry = new THREE.PlaneGeometry(100, 10);
+        const wallMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00 });
+        const leftWall = new THREE.LineSegments(new THREE.EdgesGeometry(wallGeometry), wallMaterial);
+        leftWall.position.set(-50, 5, -10);
+        scene.add(leftWall);
+        const rightWall = new THREE.LineSegments(new THREE.EdgesGeometry(wallGeometry), wallMaterial);
+        rightWall.position.set(50, 5, -10);
+        scene.add(rightWall);
+
+        // Ball
+        const ballGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+        const ballMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+        const ball = new THREE.Mesh(ballGeometry, ballMaterial);
+        ball.position.y = 0.5;
+        scene.add(ball);
+
+        // Obstacles
+        const obstacles = [];
+        const obstacleGeometry = new THREE.BoxGeometry(1, 1, 1);
+        const obstacleMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        for (let i = 0; i < 10; i++) {
+            const obstacle = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
+            obstacle.position.set(
+                (Math.random() - 0.5) * 40, // Random X within walls
+                0.5,
+                Math.random() * -50 - 5     // Ahead of ball
+            );
+            scene.add(obstacle);
+            obstacles.push(obstacle);
+        }
+
+        // Camera
+        camera.position.set(0, 5, 10);
+        camera.lookAt(ball.position);
+
+        // Controls
+        const keys = { ArrowLeft: false, ArrowRight: false, KeyA: false, KeyD: false, KeyR: false };
+        const touch = { active: false, startX: 0, deltaX: 0 };
+        const speed = 0.1;
+        let score = 0;
+        const scoreElement = document.getElementById('score');
+        let gameOver = false;
+        const gameOverText = document.getElementById('gameOver');
+
+        // Event listeners
+        document.addEventListener('keydown', (e) => { keys[e.code] = true; });
+        document.addEventListener('keyup', (e) => { keys[e.code] = false; });
+
+        document.addEventListener('touchstart', (e) => {
+            touch.active = true;
+            touch.startX = e.touches[0].clientX;
+        });
+        document.addEventListener('touchmove', (e) => {
+            if (touch.active) {
+                touch.deltaX = e.touches[0].clientX - touch.startX;
+                touch.startX = e.touches[0].clientX;
+            }
+        });
+        document.addEventListener('touchend', () => { touch.active = false; touch.deltaX = 0; });
+
+        // Animation loop
+        function animate() {
+            if (!gameOver) {
+                // Movement
+                if (keys.ArrowLeft || keys.KeyA) ball.position.x -= speed;
+                if (keys.ArrowRight || keys.KeyD) ball.position.x += speed;
+                if (touch.active) ball.position.x += touch.deltaX * 0.01;
+
+                // Boundary check
+                ball.position.x = Math.max(-45, Math.min(45, ball.position.x)); // Within walls
+
+                // Move forward
+                ball.position.z -= 0.1;
+                score += 0.1;
+                scoreElement.textContent = `Score: ${Math.floor(score)}`;
+
+                // Camera follows
+                camera.position.x = ball.position.x;
+                camera.position.z = ball.position.z + 10;
+
+                // Collision detection
+                obstacles.forEach(obstacle => {
+                    const dx = ball.position.x - obstacle.position.x;
+                    const dz = ball.position.z - obstacle.position.z;
+                    const distance = Math.sqrt(dx * dx + dz * dz);
+                    if (distance < 1.5) {
+                        gameOver = true;
+                        gameOverText.style.display = 'block';
+                    }
+                });
+
+                // Move obstacles forward
+                obstacles.forEach(obstacle => {
+                    obstacle.position.z += 0.1;
+                    if (obstacle.position.z > 5) {
+                        obstacle.position.z = ball.position.z - 50 - Math.random() * 10;
+                        obstacle.position.x = (Math.random() - 0.5) * 40;
+                    }
+                });
+            }
+
+            if (keys.KeyR && gameOver) {
+                ball.position.set(0, 0.5, 0);
+                score = 0;
+                scoreElement.textContent = `Score: ${Math.floor(score)}`;
+                gameOver = false;
+                gameOverText.style.display = 'none';
+                obstacles.forEach(obstacle => {
+                    obstacle.position.z = ball.position.z - 50 - Math.random() * 10;
+                    obstacle.position.x = (Math.random() - 0.5) * 40;
+                });
+            }
+
+            renderer.render(scene, camera);
+            requestAnimationFrame(animate);
+        }
+        animate();
+
+        // Resize handler
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
