@@ -29,23 +29,43 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Lights for better visibility in cave
-        const ambientLight = new THREE.AmbientLight(0x505050, 0.7); // Slightly brighter for detail
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0x505050, 0.7);
         scene.add(ambientLight);
         const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
         directionalLight.position.set(0, 20, 10);
         scene.add(directionalLight);
 
-        // Textures
+        // Textures with fallback
         const textureLoader = new THREE.TextureLoader();
-        const pathTexture = textureLoader.load('https://threejs.org/examples/textures/checkerboard.png');
-        pathTexture.wrapS = THREE.RepeatWrapping;
-        pathTexture.wrapT = THREE.RepeatWrapping;
-        pathTexture.repeat.set(20, 200); // Increased repetition for finer detail
-        const wallTexture = textureLoader.load('https://threejs.org/examples/textures/terrain/terrain.jpg');
-        wallTexture.wrapS = THREE.RepeatWrapping;
-        wallTexture.wrapT = THREE.RepeatWrapping;
-        wallTexture.repeat.set(10, 10); // Adjusted for better scaling
+        let pathTexture = new THREE.Texture();
+        let wallTexture = new THREE.Texture();
+        textureLoader.load('https://threejs.org/examples/textures/checkerboard.png', (texture) => {
+            pathTexture = texture;
+            pathTexture.wrapS = THREE.RepeatWrapping;
+            pathTexture.wrapT = THREE.RepeatWrapping;
+            pathTexture.repeat.set(20, 200);
+            floor.material.map = pathTexture;
+            ceiling.material.map = pathTexture;
+            floor.material.needsUpdate = true;
+            ceiling.material.needsUpdate = true;
+        }, undefined, () => {
+            floor.material.color.set(0x00ff00); // Fallback green
+            ceiling.material.color.set(0x00ff00);
+        });
+        textureLoader.load('https://threejs.org/examples/textures/terrain/terrain.jpg', (texture) => {
+            wallTexture = texture;
+            wallTexture.wrapS = THREE.RepeatWrapping;
+            wallTexture.wrapT = THREE.RepeatWrapping;
+            wallTexture.repeat.set(10, 10);
+            leftWall.material.map = wallTexture;
+            rightWall.material.map = wallTexture;
+            leftWall.material.needsUpdate = true;
+            rightWall.material.needsUpdate = true;
+        }, undefined, () => {
+            leftWall.material.color.set(0xff0000); // Fallback red
+            rightWall.material.color.set(0xff0000);
+        });
 
         // Tunnel (textured floor)
         const floorGeometry = new THREE.PlaneGeometry(20, 1000);
@@ -125,8 +145,8 @@
         }
 
         // Camera
-        camera.position.set(0, 10, 15); // Adjusted for better ceiling clearance
-        camera.rotation.x = -Math.PI / 5; // Slightly less tilt to avoid ceiling clipping
+        camera.position.set(0, 10, 15);
+        camera.rotation.x = -Math.PI / 5;
         camera.lookAt(ball.position);
 
         // Controls
@@ -190,7 +210,7 @@
                 scoreElement.textContent = `Score: ${Math.floor(score)}`;
 
                 camera.position.x = ball.position.x;
-                camera.position.z = ball.position.z + 15; // Increased distance to avoid ceiling
+                camera.position.z = ball.position.z + 15;
                 camera.lookAt(ball.position);
 
                 const colorStage = Math.floor(score / 300) % 4;
