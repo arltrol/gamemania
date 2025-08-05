@@ -1,201 +1,187 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Ball Runner Game</title>
-  <style>
-    body { margin: 0; overflow: hidden; background: #000; }
-    canvas { display: block; }
-    #score, #gameOver, #startButton {
-      position: absolute;
-      font-family: Arial, sans-serif;
-      color: white;
-      z-index: 10;
-    }
-    #score {
-      top: 10px;
-      left: 10px;
-      font-size: 1.5em;
-    }
-    #gameOver {
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 2em;
-      text-align: center;
-      display: none;
-    }
-    #startButton {
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      padding: 1em 2em;
-      background: #00aa00;
-      border: none;
-      font-size: 1.2em;
-      cursor: pointer;
-      display: block;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ball Runner Game</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; }
+        canvas { display: block; }
+        #score { position: absolute; top: 10px; left: 10px; color: white; font-family: Arial, sans-serif; font-size: 1.5em; }
+        #gameOver { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-family: Arial, sans-serif; font-size: 2em; text-align: center; display: none; }
+        #startMenu { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-family: Arial, sans-serif; font-size: 2em; text-align: center; display: block; }
+        #startButton { font-size: 1em; padding: 10px 20px; background: #00ff00; color: black; border: none; cursor: pointer; }
+    </style>
 </head>
 <body>
-  <div id="score">Score: 0</div>
-  <div id="gameOver">Game Over! Press R or Tap to Restart</div>
-  <button id="startButton">Start Game</button>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
-  <script>
-    let started = false;
-    let gameOver = false;
-    let score = 0;
-    let difficulty = 1;
+    <div id="score">Score: 0</div>
+    <div id="gameOver">Game Over! Press R to Restart</div>
+    <div id="startMenu">
+        Ball Runner Game<br>
+        <button id="startButton">Start</button>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
 
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    const renderer = new THREE.WebGLRenderer();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
+        // Tunnel (grid floor and walls) - made longer for better endless feel
+        const floorGeometry = new THREE.PlaneGeometry(100, 1000);
+        const floorMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00 });
+        const floor = new THREE.LineSegments(
+            new THREE.EdgesGeometry(floorGeometry),
+            floorMaterial
+        );
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.z = -500;
+        scene.add(floor);
 
-    // Tunnel setup
-    const floorGeometry = new THREE.PlaneGeometry(100, 20);
-    const wallGeometry = new THREE.PlaneGeometry(100, 10);
-    const gridMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00 });
+        const wallGeometry = new THREE.PlaneGeometry(1000, 10);
+        const wallMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00 });
+        const leftWall = new THREE.LineSegments(new THREE.EdgesGeometry(wallGeometry), wallMaterial);
+        leftWall.position.set(-50, 5, -500);
+        scene.add(leftWall);
+        const rightWall = new THREE.LineSegments(new THREE.EdgesGeometry(wallGeometry), wallMaterial);
+        rightWall.position.set(50, 5, -500);
+        scene.add(rightWall);
 
-    const floor = new THREE.LineSegments(new THREE.EdgesGeometry(floorGeometry), gridMaterial);
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.z = -10;
-    scene.add(floor);
+        // Ball
+        const ballGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+        const ballMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+        const ball = new THREE.Mesh(ballGeometry, ballMaterial);
+        ball.position.y = 0.5;
+        scene.add(ball);
 
-    const leftWall = new THREE.LineSegments(new THREE.EdgesGeometry(wallGeometry), gridMaterial);
-    leftWall.position.set(-50, 5, -10);
-    scene.add(leftWall);
-
-    const rightWall = new THREE.LineSegments(new THREE.EdgesGeometry(wallGeometry), gridMaterial);
-    rightWall.position.set(50, 5, -10);
-    scene.add(rightWall);
-
-    // Ball
-    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 32), new THREE.MeshBasicMaterial({ color: 0x00ff00 }));
-    ball.position.y = 0.5;
-    scene.add(ball);
-
-    // Obstacles
-    const obstacles = [];
-    const obstacleMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-    const obstacleGeometry = new THREE.BoxGeometry(1, 1, 1);
-
-for (let i = 0; i < 10; i++) {
-  const o = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
-  resetObstacle(o, true, i);  // ← pass i into the function
-  scene.add(o);
-  obstacles.push(o);
-}
-
-
-    // UI
-    const scoreElement = document.getElementById("score");
-    const gameOverText = document.getElementById("gameOver");
-    const startButton = document.getElementById("startButton");
-
-    // Controls
-    const keys = {};
-    const touch = { active: false, startX: 0, deltaX: 0 };
-    const moveSpeed = 0.1;
-
-    document.addEventListener("keydown", (e) => { keys[e.code] = true; });
-    document.addEventListener("keyup", (e) => { keys[e.code] = false; });
-
-    document.addEventListener("touchstart", (e) => {
-      if (!started) startGame();
-      touch.active = true;
-      touch.startX = e.touches[0].clientX;
-    });
-    document.addEventListener("touchmove", (e) => {
-      if (touch.active) {
-        touch.deltaX = e.touches[0].clientX - touch.startX;
-        touch.startX = e.touches[0].clientX;
-      }
-    });
-    document.addEventListener("touchend", () => {
-      touch.active = false;
-      touch.deltaX = 0;
-    });
-
-    startButton.addEventListener("click", startGame);
-
-   function resetObstacle(obstacle, initial = false, index = 0) {
-  obstacle.position.z = ball.position.z - 30 - Math.random() * 30;
-  obstacle.position.x = (Math.random() - 0.5) * 40;
-  if (initial) obstacle.position.z -= index * 10; // now using passed index
-}
-
-
-    function startGame() {
-      started = true;
-      gameOver = false;
-      score = 0;
-      difficulty = 1;
-      ball.position.set(0, 0.5, 0);
-      obstacles.forEach(o => resetObstacle(o));
-      gameOverText.style.display = "none";
-      startButton.style.display = "none";
-    }
-
-    function animate() {
-      requestAnimationFrame(animate);
-      if (!started) return;
-
-      // Increase difficulty over time
-      difficulty += 0.0003;
-
-      // Controls
-      if ((keys.ArrowLeft || keys.KeyA)) ball.position.x -= moveSpeed;
-      if ((keys.ArrowRight || keys.KeyD)) ball.position.x += moveSpeed;
-      if (touch.active) ball.position.x += touch.deltaX * 0.01;
-      ball.position.x = Math.max(-45, Math.min(45, ball.position.x));
-
-      // Move forward
-      ball.position.z -= 0.1 * difficulty;
-      score += 0.1 * difficulty;
-      scoreElement.textContent = `Score: ${Math.floor(score)}`;
-
-      // Camera follows
-      camera.position.x = ball.position.x;
-      camera.position.z = ball.position.z + 10;
-      camera.lookAt(ball.position);
-
-      // Obstacles update
-      for (let o of obstacles) {
-        o.position.z += 0.1 * difficulty;
-        if (o.position.z > ball.position.z + 5) {
-          resetObstacle(o);
+        // Obstacles - increased to 15 for fewer gaps, wider x range
+        const obstacles = [];
+        const obstacleGeometry = new THREE.BoxGeometry(1, 1, 1);
+        const obstacleMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        for (let i = 0; i < 15; i++) {
+            const obstacle = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
+            obstacle.position.set(
+                (Math.random() - 0.5) * 90, // Wider range within walls
+                0.5,
+                -5 - Math.random() * 100 // Spread out more initially
+            );
+            scene.add(obstacle);
+            obstacles.push(obstacle);
         }
 
-        // Collision
-        const dx = ball.position.x - o.position.x;
-        const dz = ball.position.z - o.position.z;
-        if (Math.sqrt(dx * dx + dz * dz) < 1.5) {
-          gameOver = true;
-          started = false;
-          gameOverText.style.display = "block";
-          startButton.style.display = "block";
+        // Camera
+        camera.position.set(0, 5, 10);
+        camera.lookAt(ball.position);
+
+        // Controls
+        const keys = { ArrowLeft: false, ArrowRight: false, KeyA: false, KeyD: false, KeyR: false };
+        const touch = { active: false, startX: 0, deltaX: 0 };
+        const lateralSpeed = 0.1;
+        let forwardSpeed = 0.1;
+        let score = 0;
+        const scoreElement = document.getElementById('score');
+        let gameOver = false;
+        const gameOverText = document.getElementById('gameOver');
+        let gameStarted = false;
+        const startMenu = document.getElementById('startMenu');
+
+        // Start button listener
+        document.getElementById('startButton').addEventListener('click', () => {
+            startMenu.style.display = 'none';
+            gameStarted = true;
+        });
+
+        // Event listeners
+        document.addEventListener('keydown', (e) => { keys[e.code] = true; });
+        document.addEventListener('keyup', (e) => { keys[e.code] = false; });
+        document.addEventListener('touchstart', (e) => {
+            touch.active = true;
+            touch.startX = e.touches[0].clientX;
+        });
+        document.addEventListener('touchmove', (e) => {
+            if (touch.active) {
+                touch.deltaX = e.touches[0].clientX - touch.startX;
+                touch.startX = e.touches[0].clientX;
+            }
+        });
+        document.addEventListener('touchend', () => { touch.active = false; touch.deltaX = 0; });
+
+        // Animation loop
+        function animate() {
+            if (gameStarted && !gameOver) {
+                // Update forward speed based on score for increasing difficulty
+                forwardSpeed = 0.1 + Math.floor(score / 100) * 0.01;
+
+                // Movement
+                if (keys.ArrowLeft || keys.KeyA) ball.position.x -= lateralSpeed;
+                if (keys.ArrowRight || keys.KeyD) ball.position.x += lateralSpeed;
+                if (touch.active) ball.position.x += touch.deltaX * 0.01;
+
+                // Boundary check
+                ball.position.x = Math.max(-45, Math.min(45, ball.position.x)); // Within walls
+
+                // Move forward
+                ball.position.z -= forwardSpeed;
+                score += forwardSpeed;
+                scoreElement.textContent = `Score: ${Math.floor(score)}`;
+
+                // Camera follows
+                camera.position.x = ball.position.x;
+                camera.position.z = ball.position.z + 10;
+
+                // Collision detection
+                obstacles.forEach(obstacle => {
+                    const dx = ball.position.x - obstacle.position.x;
+                    const dz = ball.position.z - obstacle.position.z;
+                    const distance = Math.sqrt(dx * dx + dz * dz);
+                    if (distance < 1.5) {
+                        gameOver = true;
+                        gameOverText.style.display = 'block';
+                    }
+                });
+
+                // Move obstacles forward - reset closer for density, adjust with speed
+                obstacles.forEach(obstacle => {
+                    obstacle.position.z += forwardSpeed;
+                    if (obstacle.position.z > 5) {
+                        obstacle.position.z = ball.position.z - 40 - Math.random() * 20; // Denser placement
+                        obstacle.position.x = (Math.random() - 0.5) * 90;
+                    }
+                });
+            }
+
+            if (keys.KeyR && gameOver) {
+                resetGame();
+            }
+
+            renderer.render(scene, camera);
+            requestAnimationFrame(animate);
         }
-      }
 
-      // Restart on R key
-      if (keys.KeyR && gameOver) startGame();
+        function resetGame() {
+            ball.position.set(0, 0.5, 0);
+            score = 0;
+            forwardSpeed = 0.1;
+            scoreElement.textContent = `Score: ${Math.floor(score)}`;
+            gameOver = false;
+            gameOverText.style.display = 'none';
+            obstacles.forEach(obstacle => {
+                obstacle.position.z = -5 - Math.random() * 100;
+                obstacle.position.x = (Math.random() - 0.5) * 90;
+            });
+            // Optionally show start menu again, but for now just restart
+        }
 
-      renderer.render(scene, camera);
-    }
+        animate();
 
-    animate();
-
-    // Resize
-    window.addEventListener("resize", () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-  </script>
+        // Resize handler
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
 </body>
 </html>
