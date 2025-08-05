@@ -24,43 +24,58 @@
     <script>
         // Scene setup
         const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
         const renderer = new THREE.WebGLRenderer();
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
+        // Lights for better 3D feel
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(0, 20, 10);
+        scene.add(directionalLight);
+
         // Tunnel (narrower path with taller walls)
-        const floorGeometry = new THREE.PlaneGeometry(20, 1000); // Narrower path (20 units wide)
+        const floorGeometry = new THREE.PlaneGeometry(20, 1000);
         const floorMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00 });
         const floor = new THREE.LineSegments(new THREE.EdgesGeometry(floorGeometry), floorMaterial);
         floor.rotation.x = -Math.PI / 2;
         floor.position.z = -500;
         scene.add(floor);
 
-        const wallGeometry = new THREE.PlaneGeometry(1000, 20); // Taller walls (20 units high)
-        const wallMaterial = new THREE.LineBasicMaterial({ color: 0xff0000 });
-        const leftWall = new THREE.LineSegments(new THREE.EdgesGeometry(wallGeometry), wallMaterial);
-        leftWall.position.set(-10, 10, -500); // Adjusted to narrow path edge
+        // Solid floor for texture
+        const floorSolidGeometry = new THREE.PlaneGeometry(20, 1000);
+        const floorSolidMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00, transparent: true, opacity: 0.3, roughness: 0.8, metalness: 0 });
+        const floorSolid = new THREE.Mesh(floorSolidGeometry, floorSolidMaterial);
+        floorSolid.rotation.x = -Math.PI / 2;
+        floorSolid.position.z = -500;
+        scene.add(floorSolid);
+
+        const wallGeometry = new THREE.PlaneGeometry(1000, 20);
+        const wallMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000, roughness: 0.7, metalness: 0 });
+        const leftWall = new THREE.Mesh(wallGeometry, wallMaterial);
+        leftWall.position.set(-10, 10, -500);
         scene.add(leftWall);
-        const rightWall = new THREE.LineSegments(new THREE.EdgesGeometry(wallGeometry), wallMaterial);
-        rightWall.position.set(10, 10, -500); // Adjusted to narrow path edge
+        const rightWall = new THREE.Mesh(wallGeometry, wallMaterial);
+        rightWall.position.set(10, 10, -500);
         scene.add(rightWall);
 
-        // Ball
-        const ballGeometry = new THREE.SphereGeometry(0.5, 32, 32);
-        const ballMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+        // Ball (larger with better material)
+        const ballGeometry = new THREE.SphereGeometry(1, 64, 64); // Larger and higher poly for smoothness
+        const ballMaterial = new THREE.MeshStandardMaterial({ color: 0x00ff00, roughness: 0.4, metalness: 0.2 });
         const ball = new THREE.Mesh(ballGeometry, ballMaterial);
-        ball.position.y = 0.5;
+        ball.position.y = 1;
         scene.add(ball);
 
-        // Obstacles
+        // Obstacles (with better material)
         let obstacles = [];
         const obstacleGeometry = new THREE.BoxGeometry(1, 1, 1);
-        const obstacleMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const obstacleMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000, roughness: 0.6, metalness: 0 });
         for (let i = 0; i < 10; i++) {
             const obstacle = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
             obstacle.position.set(
-                (Math.random() - 0.5) * 18, // Within narrower path (-9 to 9)
+                (Math.random() - 0.5) * 18,
                 0.5,
                 -5 - Math.random() * 100
             );
@@ -68,9 +83,36 @@
             obstacles.push(obstacle);
         }
 
-        // Camera (rotated for perspective)
-        camera.position.set(0, 15, 20); // Higher and further back
-        camera.rotation.x = -Math.PI / 6; // Tilted downward
+        // Landscapes (red mountains passing by)
+        const landscapes = [];
+        const mountainMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000, roughness: 0.8, metalness: 0 });
+        for (let i = 0; i < 20; i++) {
+            const width = 5 + Math.random() * 10;
+            const height = 10 + Math.random() * 20;
+            const depth = 20 + Math.random() * 30;
+            const mountainGeometry = new THREE.BoxGeometry(width, height, depth);
+            const mountain = new THREE.Mesh(mountainGeometry, mountainMaterial);
+            mountain.position.set(
+                -15 - Math.random() * 5, // Left side
+                height / 2,
+                -depth / 2 - i * 50 - Math.random() * 20
+            );
+            scene.add(mountain);
+            landscapes.push(mountain);
+
+            const mountainRight = new THREE.Mesh(mountainGeometry, mountainMaterial);
+            mountainRight.position.set(
+                15 + Math.random() * 5, // Right side
+                height / 2,
+                -depth / 2 - i * 50 - Math.random() * 20
+            );
+            scene.add(mountainRight);
+            landscapes.push(mountainRight);
+        }
+
+        // Camera (closer view)
+        camera.position.set(0, 8, 10); // Closer
+        camera.rotation.x = -Math.PI / 4; // More tilted for dynamic view
         camera.lookAt(ball.position);
 
         // Controls
@@ -110,9 +152,9 @@
         function animate() {
             if (gameStarted && !gameOver) {
                 // Increase difficulty
-                forwardSpeed = 0.1 + Math.floor(score / 100) * 0.02; // Speed up every 100 points
+                forwardSpeed = 0.1 + Math.floor(score / 100) * 0.02;
                 if (score > 0 && Math.floor(score / 200) > obstacles.length / 10 - 1) {
-                    for (let i = 0; i < 5; i++) { // Add 5 more obstacles every 200 points
+                    for (let i = 0; i < 5; i++) {
                         const obstacle = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
                         obstacle.position.set(
                             (Math.random() - 0.5) * 18,
@@ -129,8 +171,8 @@
                 if (keys.ArrowRight || keys.KeyD) ball.position.x += lateralSpeed;
                 if (touch.active) ball.position.x += touch.deltaX * 0.01;
 
-                // Boundary check (narrower path)
-                ball.position.x = Math.max(-9, Math.min(9, ball.position.x)); // Within -9 to 9
+                // Boundary check
+                ball.position.x = Math.max(-9, Math.min(9, ball.position.x));
 
                 // Move forward
                 ball.position.z -= forwardSpeed;
@@ -139,15 +181,15 @@
 
                 // Camera follows
                 camera.position.x = ball.position.x;
-                camera.position.z = ball.position.z + 20;
+                camera.position.z = ball.position.z + 10;
                 camera.lookAt(ball.position);
 
-                // Collision detection
+                // Collision detection (adjusted for larger ball)
                 obstacles.forEach(obstacle => {
                     const dx = ball.position.x - obstacle.position.x;
                     const dz = ball.position.z - obstacle.position.z;
                     const distance = Math.sqrt(dx * dx + dz * dz);
-                    if (distance < 1.5) {
+                    if (distance < 2) { // Adjusted for ball size 1
                         gameOver = true;
                         gameOverText.style.display = 'block';
                     }
@@ -161,6 +203,14 @@
                         obstacle.position.x = (Math.random() - 0.5) * 18;
                     }
                 });
+
+                // Move landscapes forward (recycle)
+                landscapes.forEach(landscape => {
+                    landscape.position.z += forwardSpeed;
+                    if (landscape.position.z > 5) {
+                        landscape.position.z = ball.position.z - 500 - Math.random() * 200;
+                    }
+                });
             }
 
             if (keys.KeyR && gameOver) {
@@ -172,7 +222,7 @@
         }
 
         function resetGame() {
-            ball.position.set(0, 0.5, 0);
+            ball.position.set(0, 1, 0);
             score = 0;
             forwardSpeed = 0.1;
             scoreElement.textContent = `Score: ${Math.floor(score)}`;
@@ -192,6 +242,15 @@
                 scene.add(obstacle);
                 obstacles.push(obstacle);
             }
+            // Reset landscapes
+            landscapes.forEach((landscape, i) => {
+                const side = i % 2 === 0 ? -1 : 1;
+                landscape.position.set(
+                    side * (15 + Math.random() * 5),
+                    landscape.geometry.parameters.height / 2,
+                    -landscape.geometry.parameters.depth / 2 - Math.floor(i / 2) * 50 - Math.random() * 20
+                );
+            });
         }
 
         animate();
