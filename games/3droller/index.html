@@ -84,12 +84,13 @@
     const obstacleMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
     const obstacleGeometry = new THREE.BoxGeometry(1, 1, 1);
 
-    for (let i = 0; i < 10; i++) {
-      const o = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
-      resetObstacle(o, true);
-      scene.add(o);
-      obstacles.push(o);
-    }
+for (let i = 0; i < 10; i++) {
+  const o = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
+  resetObstacle(o, true, i);  // ← pass i into the function
+  scene.add(o);
+  obstacles.push(o);
+}
+
 
     // UI
     const scoreElement = document.getElementById("score");
@@ -122,11 +123,12 @@
 
     startButton.addEventListener("click", startGame);
 
-    function resetObstacle(obstacle, initial = false) {
-      obstacle.position.z = ball.position.z - 30 - Math.random() * 30;
-      obstacle.position.x = (Math.random() - 0.5) * 40;
-      if (initial) obstacle.position.z -= i * 10; // spread out
-    }
+   function resetObstacle(obstacle, initial = false, index = 0) {
+  obstacle.position.z = ball.position.z - 30 - Math.random() * 30;
+  obstacle.position.x = (Math.random() - 0.5) * 40;
+  if (initial) obstacle.position.z -= index * 10; // now using passed index
+}
+
 
     function startGame() {
       started = true;
