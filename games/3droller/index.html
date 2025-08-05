@@ -29,24 +29,21 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Tunnel (grid floor and walls) - made longer for better endless feel
-        const floorGeometry = new THREE.PlaneGeometry(100, 1000);
+        // Tunnel (narrower path with taller walls)
+        const floorGeometry = new THREE.PlaneGeometry(20, 1000); // Narrower path (20 units wide)
         const floorMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00 });
-        const floor = new THREE.LineSegments(
-            new THREE.EdgesGeometry(floorGeometry),
-            floorMaterial
-        );
+        const floor = new THREE.LineSegments(new THREE.EdgesGeometry(floorGeometry), floorMaterial);
         floor.rotation.x = -Math.PI / 2;
         floor.position.z = -500;
         scene.add(floor);
 
-        const wallGeometry = new THREE.PlaneGeometry(1000, 10);
-        const wallMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00 });
+        const wallGeometry = new THREE.PlaneGeometry(1000, 20); // Taller walls (20 units high)
+        const wallMaterial = new THREE.LineBasicMaterial({ color: 0xff0000 });
         const leftWall = new THREE.LineSegments(new THREE.EdgesGeometry(wallGeometry), wallMaterial);
-        leftWall.position.set(-50, 5, -500);
+        leftWall.position.set(-10, 10, -500); // Adjusted to narrow path edge
         scene.add(leftWall);
         const rightWall = new THREE.LineSegments(new THREE.EdgesGeometry(wallGeometry), wallMaterial);
-        rightWall.position.set(50, 5, -500);
+        rightWall.position.set(10, 10, -500); // Adjusted to narrow path edge
         scene.add(rightWall);
 
         // Ball
@@ -56,23 +53,24 @@
         ball.position.y = 0.5;
         scene.add(ball);
 
-        // Obstacles - increased to 15 for fewer gaps, wider x range
-        const obstacles = [];
+        // Obstacles
+        let obstacles = [];
         const obstacleGeometry = new THREE.BoxGeometry(1, 1, 1);
         const obstacleMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-        for (let i = 0; i < 15; i++) {
+        for (let i = 0; i < 10; i++) {
             const obstacle = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
             obstacle.position.set(
-                (Math.random() - 0.5) * 90, // Wider range within walls
+                (Math.random() - 0.5) * 18, // Within narrower path (-9 to 9)
                 0.5,
-                -5 - Math.random() * 100 // Spread out more initially
+                -5 - Math.random() * 100
             );
             scene.add(obstacle);
             obstacles.push(obstacle);
         }
 
-        // Camera
-        camera.position.set(0, 5, 10);
+        // Camera (rotated for perspective)
+        camera.position.set(0, 15, 20); // Higher and further back
+        camera.rotation.x = -Math.PI / 6; // Tilted downward
         camera.lookAt(ball.position);
 
         // Controls
@@ -111,16 +109,28 @@
         // Animation loop
         function animate() {
             if (gameStarted && !gameOver) {
-                // Update forward speed based on score for increasing difficulty
-                forwardSpeed = 0.1 + Math.floor(score / 100) * 0.01;
+                // Increase difficulty
+                forwardSpeed = 0.1 + Math.floor(score / 100) * 0.02; // Speed up every 100 points
+                if (score > 0 && Math.floor(score / 200) > obstacles.length / 10 - 1) {
+                    for (let i = 0; i < 5; i++) { // Add 5 more obstacles every 200 points
+                        const obstacle = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
+                        obstacle.position.set(
+                            (Math.random() - 0.5) * 18,
+                            0.5,
+                            ball.position.z - 50 - Math.random() * 20
+                        );
+                        scene.add(obstacle);
+                        obstacles.push(obstacle);
+                    }
+                }
 
                 // Movement
                 if (keys.ArrowLeft || keys.KeyA) ball.position.x -= lateralSpeed;
                 if (keys.ArrowRight || keys.KeyD) ball.position.x += lateralSpeed;
                 if (touch.active) ball.position.x += touch.deltaX * 0.01;
 
-                // Boundary check
-                ball.position.x = Math.max(-45, Math.min(45, ball.position.x)); // Within walls
+                // Boundary check (narrower path)
+                ball.position.x = Math.max(-9, Math.min(9, ball.position.x)); // Within -9 to 9
 
                 // Move forward
                 ball.position.z -= forwardSpeed;
@@ -129,7 +139,8 @@
 
                 // Camera follows
                 camera.position.x = ball.position.x;
-                camera.position.z = ball.position.z + 10;
+                camera.position.z = ball.position.z + 20;
+                camera.lookAt(ball.position);
 
                 // Collision detection
                 obstacles.forEach(obstacle => {
@@ -142,12 +153,12 @@
                     }
                 });
 
-                // Move obstacles forward - reset closer for density, adjust with speed
+                // Move obstacles forward
                 obstacles.forEach(obstacle => {
                     obstacle.position.z += forwardSpeed;
                     if (obstacle.position.z > 5) {
-                        obstacle.position.z = ball.position.z - 40 - Math.random() * 20; // Denser placement
-                        obstacle.position.x = (Math.random() - 0.5) * 90;
+                        obstacle.position.z = ball.position.z - 40 - Math.random() * 20;
+                        obstacle.position.x = (Math.random() - 0.5) * 18;
                     }
                 });
             }
@@ -168,10 +179,19 @@
             gameOver = false;
             gameOverText.style.display = 'none';
             obstacles.forEach(obstacle => {
-                obstacle.position.z = -5 - Math.random() * 100;
-                obstacle.position.x = (Math.random() - 0.5) * 90;
+                scene.remove(obstacle);
             });
-            // Optionally show start menu again, but for now just restart
+            obstacles = [];
+            for (let i = 0; i < 10; i++) {
+                const obstacle = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
+                obstacle.position.set(
+                    (Math.random() - 0.5) * 18,
+                    0.5,
+                    -5 - Math.random() * 100
+                );
+                scene.add(obstacle);
+                obstacles.push(obstacle);
+            }
         }
 
         animate();
