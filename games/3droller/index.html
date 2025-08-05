@@ -29,25 +29,25 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Lights for cave-like atmosphere
-        const ambientLight = new THREE.AmbientLight(0x404040, 0.6); // Dimmer for cave feel
+        // Lights for better visibility in cave
+        const ambientLight = new THREE.AmbientLight(0x505050, 0.7); // Slightly brighter for detail
         scene.add(ambientLight);
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
         directionalLight.position.set(0, 20, 10);
         scene.add(directionalLight);
 
         // Textures
         const textureLoader = new THREE.TextureLoader();
-        const pathTexture = textureLoader.load('https://threejs.org/examples/textures/checkerboard.png'); // Grid-like texture
+        const pathTexture = textureLoader.load('https://threejs.org/examples/textures/checkerboard.png');
         pathTexture.wrapS = THREE.RepeatWrapping;
         pathTexture.wrapT = THREE.RepeatWrapping;
-        pathTexture.repeat.set(10, 100);
-        const wallTexture = textureLoader.load('https://threejs.org/examples/textures/terrain/terrain.jpg'); // Rough rocky texture
+        pathTexture.repeat.set(20, 200); // Increased repetition for finer detail
+        const wallTexture = textureLoader.load('https://threejs.org/examples/textures/terrain/terrain.jpg');
         wallTexture.wrapS = THREE.RepeatWrapping;
         wallTexture.wrapT = THREE.RepeatWrapping;
-        wallTexture.repeat.set(5, 5);
+        wallTexture.repeat.set(10, 10); // Adjusted for better scaling
 
-        // Tunnel (narrower path with textured floor)
+        // Tunnel (textured floor)
         const floorGeometry = new THREE.PlaneGeometry(20, 1000);
         const floorMaterial = new THREE.MeshStandardMaterial({ map: pathTexture, color: 0x00ff00, roughness: 0.8, metalness: 0 });
         const floor = new THREE.Mesh(floorGeometry, floorMaterial);
@@ -57,12 +57,12 @@
 
         // Walls (textured and color-changing)
         const wallGeometry = new THREE.PlaneGeometry(1000, 20);
-        const wallMaterial = new THREE.MeshStandardMaterial({ map: wallTexture, color: 0xff0000, roughness: 0.7, metalness: 0 });
-        const leftWall = new THREE.Mesh(wallGeometry, wallMaterial.clone());
+        const wallMaterialBase = new THREE.MeshStandardMaterial({ map: wallTexture, roughness: 0.7, metalness: 0 });
+        const leftWall = new THREE.Mesh(wallGeometry, wallMaterialBase.clone());
         leftWall.position.set(-10, 10, -500);
         leftWall.rotation.y = Math.PI / 2;
         scene.add(leftWall);
-        const rightWall = new THREE.Mesh(wallGeometry, wallMaterial.clone());
+        const rightWall = new THREE.Mesh(wallGeometry, wallMaterialBase.clone());
         rightWall.position.set(10, 10, -500);
         rightWall.rotation.y = -Math.PI / 2;
         scene.add(rightWall);
@@ -72,7 +72,7 @@
         const ceilingMaterial = new THREE.MeshStandardMaterial({ map: pathTexture, color: 0x00ff00, roughness: 0.8, metalness: 0 });
         const ceiling = new THREE.Mesh(ceilingGeometry, ceilingMaterial);
         ceiling.rotation.x = Math.PI / 2;
-        ceiling.position.set(0, 20, -500); // 10 units above floor
+        ceiling.position.set(0, 20, -500);
         scene.add(ceiling);
 
         // Ball
@@ -125,8 +125,8 @@
         }
 
         // Camera
-        camera.position.set(0, 8, 12);
-        camera.rotation.x = -Math.PI / 4;
+        camera.position.set(0, 10, 15); // Adjusted for better ceiling clearance
+        camera.rotation.x = -Math.PI / 5; // Slightly less tilt to avoid ceiling clipping
         camera.lookAt(ball.position);
 
         // Controls
@@ -190,12 +190,11 @@
                 scoreElement.textContent = `Score: ${Math.floor(score)}`;
 
                 camera.position.x = ball.position.x;
-                camera.position.z = ball.position.z + 12;
+                camera.position.z = ball.position.z + 15; // Increased distance to avoid ceiling
                 camera.lookAt(ball.position);
 
-                // Change wall color every 300 points
                 const colorStage = Math.floor(score / 300) % 4;
-                const wallColors = [0xff0000, 0x0000ff, 0xff00ff, 0xffff00]; // Red, Blue, Purple, Yellow
+                const wallColors = [0xff0000, 0x0000ff, 0xff00ff, 0xffff00];
                 leftWall.material.color.set(wallColors[colorStage]);
                 rightWall.material.color.set(wallColors[colorStage]);
 
@@ -262,7 +261,7 @@
                     -landscape.geometry.parameters.depth / 2 - Math.floor(i / 2) * 50 - Math.random() * 20
                 );
             });
-            leftWall.material.color.set(0xff0000); // Reset to initial color
+            leftWall.material.color.set(0xff0000);
             rightWall.material.color.set(0xff0000);
         }
 
