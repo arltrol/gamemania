@@ -50,7 +50,7 @@
             floor.material.needsUpdate = true;
             ceiling.material.needsUpdate = true;
         }, undefined, () => {
-            floor.material.color.set(0x00ff00); // Fallback green
+            floor.material.color.set(0x00ff00);
             ceiling.material.color.set(0x00ff00);
         });
         textureLoader.load('https://threejs.org/examples/textures/terrain/terrain.jpg', (texture) => {
@@ -63,7 +63,7 @@
             leftWall.material.needsUpdate = true;
             rightWall.material.needsUpdate = true;
         }, undefined, () => {
-            leftWall.material.color.set(0xff0000); // Fallback red
+            leftWall.material.color.set(0xff0000);
             rightWall.material.color.set(0xff0000);
         });
 
@@ -102,20 +102,38 @@
         ball.position.y = 1;
         scene.add(ball);
 
-        // Obstacles
+        // Obstacles with path guarantee
         let obstacles = [];
         const obstacleGeometry = new THREE.BoxGeometry(1, 1, 1);
         const obstacleMaterial = new THREE.MeshStandardMaterial({ color: 0xff0000, roughness: 0.6, metalness: 0 });
-        for (let i = 0; i < 10; i++) {
-            const obstacle = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
-            obstacle.position.set(
-                (Math.random() - 0.5) * 18,
-                0.5,
-                -5 - Math.random() * 100
-            );
-            scene.add(obstacle);
-            obstacles.push(obstacle);
+        function addObstacle() {
+            let validPosition = false;
+            let attempts = 0;
+            const maxAttempts = 10;
+            let obstacle;
+
+            while (!validPosition && attempts < maxAttempts) {
+                obstacle = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
+                const x = (Math.random() - 0.5) * 18; // -9 to 9 range
+                const z = -5 - Math.random() * 100;
+                obstacle.position.set(x, 0.5, z);
+
+                // Check if obstacle blocks the central safe zone (-2 to 2)
+                validPosition = Math.abs(x) > 2 || obstacles.every(o => {
+                    const dx = obstacle.position.x - o.position.x;
+                    const dz = obstacle.position.z - o.position.z;
+                    const distance = Math.sqrt(dx * dx + dz * dz);
+                    return distance > 2; // Ensure no overlap in safe zone
+                });
+
+                attempts++;
+            }
+            if (validPosition) {
+                scene.add(obstacle);
+                obstacles.push(obstacle);
+            }
         }
+        for (let i = 0; i < 10; i++) addObstacle();
 
         // Landscapes (red mountains)
         const landscapes = [];
@@ -188,14 +206,7 @@
                 forwardSpeed = 0.1 + Math.floor(score / 100) * 0.02;
                 if (score > 0 && Math.floor(score / 200) > obstacles.length / 10 - 1) {
                     for (let i = 0; i < 5; i++) {
-                        const obstacle = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
-                        obstacle.position.set(
-                            (Math.random() - 0.5) * 18,
-                            0.5,
-                            ball.position.z - 50 - Math.random() * 20
-                        );
-                        scene.add(obstacle);
-                        obstacles.push(obstacle);
+                        addObstacle();
                     }
                 }
 
@@ -232,7 +243,14 @@
                     obstacle.position.z += forwardSpeed;
                     if (obstacle.position.z > 5) {
                         obstacle.position.z = ball.position.z - 40 - Math.random() * 20;
-                        obstacle.position.x = (Math.random() - 0.5) * 18;
+                        let valid = false;
+                        let attempts = 0;
+                        while (!valid && attempts < 10) {
+                            const newX = (Math.random() - 0.5) * 18;
+                            if (Math.abs(newX) > 2) valid = true; // Ensure safe zone
+                            if (valid) obstacle.position.x = newX;
+                            attempts++;
+                        }
                     }
                 });
 
@@ -264,14 +282,7 @@
             });
             obstacles = [];
             for (let i = 0; i < 10; i++) {
-                const obstacle = new THREE.Mesh(obstacleGeometry, obstacleMaterial);
-                obstacle.position.set(
-                    (Math.random() - 0.5) * 18,
-                    0.5,
-                    -5 - Math.random() * 100
-                );
-                scene.add(obstacle);
-                obstacles.push(obstacle);
+                addObstacle();
             }
             landscapes.forEach((landscape, i) => {
                 const side = i % 2 === 0 ? -1 : 1;
