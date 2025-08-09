@@ -151,6 +151,12 @@ scene.add(ball); // <-- add this
 camera.lookAt(0, 1, -10);   // look where the test cube is
 renderer.setClearColor(0x000000, 1);  // explicit background
 renderer.render(scene, camera);       // draw once before loop
+console.log('THREE rev', THREE.REVISION);
+console.log('Canvas size', renderer.domElement.width, renderer.domElement.height, 'DPR', devicePixelRatio);
+const gl = renderer.getContext();
+console.log('WebGL version', gl.getParameter(gl.VERSION));
+console.log('Renderer', gl.getParameter(gl.RENDERER));
+console.log('Scene children', scene.children.length);
 
 
 
