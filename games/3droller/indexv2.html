@@ -63,12 +63,17 @@
 </div>
 
 <div id="gameOver">Game Over — press R or Tap START to try again</div>
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<!-- replace the current three.min.js tag with this, then wrap your game code in the same module -->
+<script type="module">
+  import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.159.0/build/three.module.js';
+  window.THREE = THREE; // keep your existing code unchanged
+  // 👉 paste your whole game script here (everything below your old script tag)
+</script>
 
 <script>
 /* ---------------- Core Scene ---------------- */
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(0x000000, 30, 220);
+scene.fog = new THREE.Fog(0x000000, 5, 600);
 
 const camera = new THREE.PerspectiveCamera(74, innerWidth/innerHeight, 0.1, 1000);
 camera.position.set(0, 7.5, 16);
@@ -78,8 +83,16 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 document.body.appendChild(renderer.domElement);
 
+
+// color management across versions
+if ('outputColorSpace' in renderer) {
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+} else {
+  renderer.outputEncoding = THREE.sRGBEncoding;
+}
+  
 /* Lights (simple for mobile) */
-scene.add(new THREE.AmbientLight(0x0af0ff, .35));
+scene.add(new THREE.AmbientLight(0x0af0ff, 0.55));
 const dir = new THREE.DirectionalLight(0xffffff, .4);
 dir.position.set(2,5,1);
 scene.add(dir);
@@ -93,9 +106,9 @@ const matte = hex => new THREE.MeshBasicMaterial({ color: hex });
 
 /* Glowing grid floor */
 {
-  const grid = new THREE.GridHelper(40, 40, UI, UI);
-  grid.material.opacity = 0.25; grid.material.transparent = true;
-  grid.position.y = 0; scene.add(grid);
+const grid = new THREE.GridHelper(40, 40, UI, UI);
+grid.material.opacity = 0.6;   // was 0.25
+grid.material.transparent = true;
 }
 const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 2000), matte(0x020607));
 floor.rotation.x = -Math.PI/2; floor.position.z = -900; scene.add(floor);
@@ -103,7 +116,7 @@ floor.rotation.x = -Math.PI/2; floor.position.z = -900; scene.add(floor);
 /* Neon tunnel frames */
 const frameGeo = new THREE.BoxGeometry(20, 12, .25);
 for (let i=0;i<26;i++){
-  const g = new THREE.Mesh(frameGeo, neon(UI, UI, .6));
+const g = new THREE.Mesh(frameGeo, neon(UI, UI, 1.0)); // was .6
   g.position.set(0,6,-i*30-20);
   scene.add(g);
 }
