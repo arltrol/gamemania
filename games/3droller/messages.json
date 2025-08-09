@@ -1,0 +1,18 @@
+{
+  "messages": [
+    { "text": "Roland was here", "rarity": "common" },
+    { "text": "Lucas was not", "rarity": "common" },
+    { "text": "Lea is dancing", "rarity": "common" },
+    { "text": "BAD BUCK BUCK", "rarity": "common" },
+    { "text": "Gamer Addict", "rarity": "common" },
+    { "text": "Young people spend too much time on screens", "rarity": "common" },
+    { "text": "Roblox addict", "rarity": "uncommon" },
+    { "text": "bad buck buck", "rarity": "rare", "minScore": 300 },
+    { "text": "Touch grass bonus +10", "rarity": "uncommon" },
+    { "text": "Dad’s high score is safe… for now", "rarity": "rare", "minScore": 500 },
+    { "text": "Pro tip: boost rings = speed + style", "rarity": "common" },
+    { "text": "No auto‑clickers here 😉", "rarity": "uncommon" },
+    { "text": "Eyes on the laser!", "rarity": "common" },
+    { "text": "RolloMania approves this message", "rarity": "uncommon" }
+  ]
+}
