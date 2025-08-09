@@ -65,7 +65,6 @@
 <div id="gameOver">Game Over — press R or Tap START to try again</div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
 
-
 <script>
 /* ---------------- Core Scene ---------------- */
 const scene = new THREE.Scene();
@@ -126,8 +125,8 @@ const wallMat = makeGlyphMat();
 const wallL = new THREE.Mesh(new THREE.PlaneGeometry(2000, 20), wallMat); wallL.rotation.y=Math.PI/2; wallL.position.set(-10,6,-900); scene.add(wallL);
 const wallR = new THREE.Mesh(new THREE.PlaneGeometry(2000, 20), wallMat.clone()); wallR.rotation.y=-Math.PI/2; wallR.position.set(10,6,-900); scene.add(wallR);
 
-/* Player ball */
-const ball = new THREE.Mesh(new THREE.SphereGeometry(1, 48, 48), neon(0x0aff6c, 0x0aff6c, .8));
+/* Player ball (lower poly for mobile) */
+const ball = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 32), neon(0x0aff6c, 0x0aff6c, .8));
 ball.position.set(0,1,0); scene.add(ball);
 
 /* Trail (simple line that lerps) */
@@ -138,7 +137,7 @@ scene.add(trail);
 /* ---------------- Game State ---------------- */
 let running=false, over=false;
 let score=0, jumps=3, streak=1, targetZOffset=0, zOffset=0;
-let forwardBase=9, forward=9, boostTimer=0, slowmoTimer=0;
+let forwardBase=9, forward=9, boostTimer=0;
 const maxX=8.8, minZOffset=-3.0, maxZOffset=3.0;
 
 const scoreEl = document.getElementById('score');
@@ -149,7 +148,6 @@ const startBtn = document.getElementById('startBtn');
 const sensInput= document.getElementById('sens');
 const tiltChk  = document.getElementById('tilt');
 const gameOverEl = document.getElementById('gameOver');
-
 
 // Ask for iOS tilt permissions when checkbox is turned on
 tiltChk.addEventListener('change', async () => {
@@ -181,6 +179,8 @@ addEventListener('touchend', e=>{ touchActive=false; lastTouch=null; });
 function steer(dx,dy){
   const sens = parseFloat(sensInput.value);
   ball.position.x += (dx/innerWidth)*20*sens;          // left / right
+  // Clamp X so we never clip the walls
+  ball.position.x = Math.max(-maxX, Math.min(maxX, ball.position.x));
   targetZOffset -= (dy/innerHeight)*6*sens*0.6;        // up / down feel
   targetZOffset = Math.max(minZOffset, Math.min(maxZOffset, targetZOffset));
 }
@@ -195,8 +195,8 @@ function attemptJump(){
 let tiltX=0, tiltY=0;
 window.addEventListener('deviceorientation', (ev)=>{
   if(!tiltChk.checked) return;
-  const nx = THREE.MathUtils.clamp((ev.gamma||0)/45, -1, 1);
-  const ny = THREE.MathUtils.clamp((ev.beta ||0-45)/45, -1, 1);
+  const nx = THREE.MathUtils.clamp((ev.gamma || 0)/45, -1, 1);
+  const ny = THREE.MathUtils.clamp(((ev.beta || 0) - 45)/45, -1, 1); // fixed precedence
   tiltX = nx; tiltY = ny;
 });
 
@@ -248,10 +248,11 @@ function spawnCoin(z){
 
 /* Quip (JSON-driven wall message) */
 let QUIPS=[{text:'Loading…'}]; // replaced after fetch
+function hexToCss(hex){ return '#'+hex.toString(16).padStart(6,'0'); }
 function spawnQuip(z){
   const msg = QUIPS[Math.floor(Math.random()*QUIPS.length)];
   if(!msg) return;
-  const plane = textSprite(msg.text, UI, 0.8);
+  const plane = textSprite(msg.text, hexToCss(UI), 0.8); // uses color param now
   const left = Math.random()<.5;
   plane.position.set(left?-9.6:9.6, 4+Math.random()*4, z);
   plane.rotation.y = left? Math.PI/2 : -Math.PI/2;
@@ -260,16 +261,15 @@ function spawnQuip(z){
 }
 
 /* Text sprite via canvas */
-function textSprite(t, color, scale=1){
+function textSprite(t, colorCss, scale=1){
   const c = document.createElement('canvas');
   c.width=512; c.height=128; const ctx=c.getContext('2d');
-  ctx.fillStyle='rgba(0,0,0,0)';
-  ctx.fillRect(0,0,c.width,c.height);
+  ctx.clearRect(0,0,c.width,c.height);
   ctx.font='700 46px ui-sans-serif,system-ui,Segoe UI';
-  ctx.fillStyle='#0ff'; ctx.shadowColor='#0ff'; ctx.shadowBlur=18;
+  ctx.fillStyle=colorCss; ctx.shadowColor=colorCss; ctx.shadowBlur=18;
   ctx.fillText(t, 20, 80);
   const tex = new THREE.CanvasTexture(c);
-  const mat = new THREE.SpriteMaterial({ map:tex, color:color, transparent:true });
+  const mat = new THREE.SpriteMaterial({ map:tex, transparent:true });
   const spr = new THREE.Sprite(mat); spr.scale.set(8*scale,2*scale,1);
   return spr;
 }
@@ -297,13 +297,14 @@ function loop(now){
   const dt = Math.min(0.033, (now - prev)/1000); prev=now;
   if(!running) { renderer.render(scene,camera); return; }
 
-  // input: keyboard
+  // input: keyboard + tilt
   const sens = parseFloat(sensInput.value);
   const lateral = ( (keys.ArrowRight||keys.KeyD) - (keys.ArrowLeft||keys.KeyA) ) * 12*sens * dt
                 + tiltX * 8*sens * dt;
   const zAdj   = ( (keys.ArrowUp) - (keys.ArrowDown) ) * 6*sens * dt + (-tiltY) * 2*sens * dt;
 
   ball.position.x += lateral;
+  ball.position.x = Math.max(-maxX, Math.min(maxX, ball.position.x));
   targetZOffset += zAdj;
   targetZOffset = THREE.MathUtils.clamp(targetZOffset, minZOffset, maxZOffset);
   zOffset = THREE.MathUtils.damp(zOffset, targetZOffset, 6, dt);
@@ -311,11 +312,10 @@ function loop(now){
   // vertical (jump)
   if(vy!==0 || ball.position.y>1.001){ vy -= 18*dt; ball.position.y += vy*dt; if(ball.position.y<=1){ ball.position.y=1; vy=0; } }
 
-  // forward speed (boost/slowmo)
+  // forward speed (boost)
   let spd = forwardBase + score*0.01; // ramp
   if(boostTimer>0){ boostTimer-=dt; spd*=1.6; camera.fov = THREE.MathUtils.damp(camera.fov, 82, 3, dt); camera.updateProjectionMatrix();}
   else { camera.fov = THREE.MathUtils.damp(camera.fov, 74, 2, dt); camera.updateProjectionMatrix();}
-  if(slowmoTimer>0){ slowmoTimer-=dt; spd*=0.6; }
 
   forward = THREE.MathUtils.damp(forward, spd, 3, dt);
   score += forward*dt * (1+(streak-1)*0.15);
@@ -331,13 +331,12 @@ function loop(now){
     const o = obstacles[i];
     o.position.z += forward*dt;
 
-    // simple spins for collectibles
+    // spins for collectibles
     if(o.userData.type==='boost' || o.userData.type==='refill' || o.userData.type==='coin') o.rotation.y += 2*dt;
 
     // recycle past objects
     if(o.position.z > 6){
       scene.remove(o); obstacles.splice(i,1);
-      // respawn new ahead
       const nz = ball.position.z - 140 - Math.random()*80;
       const roll = Math.random();
       if(roll < .10) spawnLaser(nz);
@@ -346,13 +345,13 @@ function loop(now){
       else if(roll < .48) spawnBlock(nz);
       else if(roll < .78) spawnCoin(nz);
       if(Math.random() < .38) spawnQuip(nz-1.5);
+      continue;
     }
-    // collisions (AABB-ish around ball)
+
+    // collisions
     if(collides(o, ball)){
       const t=o.userData.type;
-      if(t==='block' || (t==='laser' && ball.position.y< o.position.y+0.35)){
-        return gameOver();
-      }
+      if(t==='block' || t==='laser'){ return gameOver(); }
       if(t==='boost'){ boostTimer=3.2; streak=Math.min(5,streak+1); streakEl.textContent='x'+streak; pop(o); }
       if(t==='refill'){ jumps = Math.min(3, jumps+1); jumpsEl.textContent='JUMPS: '+jumps; streak=Math.max(1,streak-1); pop(o); }
       if(t==='coin'){ score += 12; pop(o); }
@@ -366,13 +365,18 @@ function loop(now){
 requestAnimationFrame(loop);
 
 function collides(o, b){
-  tmpVec.copy(b.position);
-  const dx = Math.abs(o.position.x - tmpVec.x);
-  const dy = Math.abs((o.position.y||0) - tmpVec.y);
-  const dz = Math.abs(o.position.z - tmpVec.z);
+  const dx = Math.abs(o.position.x - b.position.x);
+  const dy = Math.abs((o.position.y||0) - b.position.y);
+  const dz = Math.abs(o.position.z - b.position.z);
   const type=o.userData.type;
-  if(type==='laser') return dx<8 && dz<1.2; // horizontal bar across lane, height checked earlier
+
+  if(type==='laser'){
+    // need to be inside horizontal span, close in Z, and below the beam
+    const underBeam = b.position.y < (o.position.y + 0.35);
+    return dx<8 && dz<1.2 && underBeam;
+  }
   if(type==='boost' || type==='refill' || type==='coin' || type==='quip') return dx<1.3 && dy<1.4 && dz<1.3;
+  // blocks
   return dx<1.2 && dy<1.2 && dz<1.2;
 }
 function pop(o){ scene.remove(o); obstacles.splice(obstacles.indexOf(o),1); }
@@ -386,7 +390,7 @@ function restart(){
   over=false; gameOverEl.style.display='none'; startMenu.style.display='none';
   // reset
   score=0; jumps=3; streak=1; jumpsEl.textContent='JUMPS: 3'; streakEl.textContent='x1';
-  ball.position.set(0,1,0); vy=0; targetZOffset=0; zOffset=0; boostTimer=0; slowmoTimer=0; forward=forwardBase=9;
+  ball.position.set(0,1,0); vy=0; targetZOffset=0; zOffset=0; boostTimer=0; forward=forwardBase=9;
   // flush & reseed
   obstacles.forEach(o=>scene.remove(o)); obstacles.length=0; seed();
   running=true;
