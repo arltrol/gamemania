@@ -63,8 +63,8 @@
 </div>
 
 <div id="gameOver">Game Over — press R or Tap START to try again</div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r152/three.min.js"></script>
 
 <script>
 /* ---------------- Core Scene ---------------- */
@@ -150,6 +150,20 @@ const sensInput= document.getElementById('sens');
 const tiltChk  = document.getElementById('tilt');
 const gameOverEl = document.getElementById('gameOver');
 
+
+// Ask for iOS tilt permissions when checkbox is turned on
+tiltChk.addEventListener('change', async () => {
+  if (!tiltChk.checked) return;
+  const DME = window.DeviceMotionEvent;
+  const DOE = window.DeviceOrientationEvent;
+  if (DME && typeof DME.requestPermission === 'function') {
+    try { await DME.requestPermission(); } catch {}
+  }
+  if (DOE && typeof DOE.requestPermission === 'function') {
+    try { await DOE.requestPermission(); } catch {}
+  }
+});
+  
 /* ---------------- Inputs ---------------- */
 const keys = {};
 addEventListener('keydown',e=>{ keys[e.code]=true; if(e.code==='Space') attemptJump(); if(over && e.code==='KeyR') restart(); });
@@ -379,7 +393,7 @@ function restart(){
 }
 
 /* ---------------- Wall messages from JSON ---------------- */
-fetch('messages.json').then(r=>r.json()).then(data=>{
+fetch('messages.json?cachebust=' + Date.now()).then(r=>r.json()).then(data=>{
   if(Array.isArray(data.messages)) {
     QUIPS = data.messages
       .filter(m=>m && m.text)
